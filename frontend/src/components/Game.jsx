@@ -50,13 +50,18 @@ function hexToRgb(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-// Cracked cobblestone/cell texture (Voronoi-ish): scatter a few seed points
-// and paint pixels near a cell border in the crack color. Cheap enough to
-// run once per tile build since the result is cached as a CanvasPattern.
-function paintCrackedCells(ctx, size, baseHex, crackHex, cellCount = 8) {
+function makeCellSeed(size, cellCount = 6) {
+  return Array.from({ length: cellCount }, () => [Math.random() * size, Math.random() * size])
+}
+
+// Cracked cobblestone/cell texture (Voronoi-ish): paint pixels near a cell
+// border in the crack color. The seed points are generated once and shared
+// across both animation variants so the geometry stays put and only the
+// color shifts — swapping the geometry itself made the ground look like it
+// was swimming/flickering between frames.
+function paintCrackedCells(ctx, size, baseHex, crackHex, pts) {
   const base = hexToRgb(baseHex)
   const crack = hexToRgb(crackHex)
-  const pts = Array.from({ length: cellCount }, () => [Math.random() * size, Math.random() * size])
   const img = ctx.createImageData(size, size)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -65,7 +70,7 @@ function paintCrackedCells(ctx, size, baseHex, crackHex, cellCount = 8) {
         const d = (x - px) ** 2 + (y - py) ** 2
         if (d < d1) { d2 = d1; d1 = d } else if (d < d2) d2 = d
       }
-      const isCrack = Math.sqrt(d2) - Math.sqrt(d1) < 1.4
+      const isCrack = Math.sqrt(d2) - Math.sqrt(d1) < 0.9
       const c = isCrack ? crack : base
       const idx = (y * size + x) * 4
       img.data[idx] = c[0]; img.data[idx + 1] = c[1]; img.data[idx + 2] = c[2]; img.data[idx + 3] = 255
@@ -74,9 +79,9 @@ function paintCrackedCells(ctx, size, baseHex, crackHex, cellCount = 8) {
   ctx.putImageData(img, 0, 0)
 }
 
-function paintGroundTile(ctx, size, bg, type, variant) {
-  const crackColors = { grass: '#163a24', sand: '#c8a868', ice: '#8cc8eb', rock: '#3a2424' }
-  if (crackColors[type]) paintCrackedCells(ctx, size, bg, crackColors[type], 9)
+function paintGroundTile(ctx, size, bg, type, variant, cellSeed) {
+  const crackColors = { grass: '#1d4a30', sand: '#d8bc88', ice: '#a8d8ec', rock: '#4a3030' }
+  if (crackColors[type]) paintCrackedCells(ctx, size, bg, crackColors[type], cellSeed)
   else { ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size) }
   const u = size / 32
   const speck = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x * u, y * u, w * u, h * u) }
@@ -362,9 +367,10 @@ export default function Game({ onGameOver }) {
       if (groundStageRef.current !== stageIdx || !groundPatternsRef.current) {
         groundStageRef.current = stageIdx
         const tileSize = CELL * 2
+        const cellSeed = makeCellSeed(tileSize)
         groundPatternsRef.current = {
-          a: buildTilePattern(ctx, tctx => paintGroundTile(tctx, tileSize, t.bg, stageData.groundTile, 0), tileSize),
-          b: buildTilePattern(ctx, tctx => paintGroundTile(tctx, tileSize, t.bg, stageData.groundTile, 1), tileSize),
+          a: buildTilePattern(ctx, tctx => paintGroundTile(tctx, tileSize, t.bg, stageData.groundTile, 0, cellSeed), tileSize),
+          b: buildTilePattern(ctx, tctx => paintGroundTile(tctx, tileSize, t.bg, stageData.groundTile, 1, cellSeed), tileSize),
         }
       }
       const variant = Math.floor(now / 300) % 2
@@ -519,7 +525,7 @@ export default function Game({ onGameOver }) {
         ? (en.phase === 'exposed' || en.phase === 'emerging' ? 'sandworm' : 'mound')
         : ENEMY_SPRITES[en.type]
       const baseAlpha = !isSandworm && en.intangible ? 0.35 : 1
-      const outlineColor = frozen ? '#bcdfff' : '#0a0612'
+      const outlineColor = frozen ? '#bcdfff' : '#fff7e8'
 
       if (!(isSandworm && spriteName === 'mound')) {
         drawContactShadow(ctx, ex, ey + CELL * 0.38, CELL * 0.8, CELL * 0.3, 0.28 * baseAlpha)

@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: contain;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -38,7 +38,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   transition: background 0.3s, color 0.3s;
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: contain;
   -webkit-tap-highlight-color: transparent;
 }
 

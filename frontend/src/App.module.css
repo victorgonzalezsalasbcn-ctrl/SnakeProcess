@@ -89,6 +89,17 @@
   min-width: 250px;
 }
 
+.scoreOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(10, 8, 16, 0.55);
+  z-index: 50;
+}
+
 @media (max-width: 600px) {
   .main { padding: 0.6rem 0.5rem 1.5rem; }
   .header { margin-bottom: 0.75rem; }

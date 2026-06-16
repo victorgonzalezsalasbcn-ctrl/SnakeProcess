@@ -47,11 +47,13 @@ export default function App() {
           </p>
           <Game onGameOver={setLastGame} />
           {lastGame && (
-            <ScoreForm
-              score={lastGame.score}
-              level={lastGame.level}
-              onSubmitted={handleScoreSubmitted}
-            />
+            <div className={styles.scoreOverlay}>
+              <ScoreForm
+                score={lastGame.score}
+                level={lastGame.level}
+                onSubmitted={handleScoreSubmitted}
+              />
+            </div>
           )}
         </section>
         <aside className={styles.sidebar}>
