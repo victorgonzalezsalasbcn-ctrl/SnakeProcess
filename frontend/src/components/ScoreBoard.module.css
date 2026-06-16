@@ -119,6 +119,13 @@
   justify-content: flex-end;
 }
 
+@media (max-width: 600px) {
+  .wrap { padding: 10px 12px; min-height: 64px; gap: 10px; }
+  .score { font-size: 19px; }
+  .worldIconCanvas { width: 22px; height: 22px; }
+  .bestPill, .worldBadge { font-size: 8px; }
+}
+
 .streak {
   font-size: 9px;
   color: #fb923c;

@@ -3,6 +3,8 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  touch-action: none;
+  user-select: none;
 }
 
 .canvasBox {
@@ -46,4 +48,12 @@
 .dpadRow {
   display: flex;
   gap: 4px;
+}
+
+@media (max-width: 600px) {
+  .wrap { gap: 8px; }
+  .controls { gap: 6px; }
+  .btn { padding: 6px 14px; font-size: 12px; }
+  .dpad { gap: 3px; }
+  .dpadRow { gap: 3px; }
 }
