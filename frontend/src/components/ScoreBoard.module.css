@@ -1,0 +1,154 @@
+.wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: linear-gradient(160deg, var(--bg-surface), var(--bg-subtle));
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stageBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  animation: stageBadgeIn 0.4s ease;
+}
+
+@keyframes stageBadgeIn {
+  from { transform: scale(0.85); opacity: 0.4; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.stageIcon { font-size: 15px; }
+
+.bestPill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.bestValue { font-weight: 700; color: var(--text); }
+
+.scoreRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.score {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  transition: transform 0.15s;
+}
+
+.scoreBump { transform: scale(1.12); color: var(--accent); }
+
+.delta {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+}
+
+.deltaUp { color: #4ade80; }
+.deltaDown { color: var(--text-muted); }
+
+.statusRow {
+  display: flex;
+  gap: 10px;
+  min-height: 18px;
+  flex-wrap: wrap;
+}
+
+.streak {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fb923c;
+}
+
+.shield {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #7ed4e0;
+}
+
+.effects {
+  display: flex;
+  gap: 8px;
+}
+
+.effectBadge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.effectIcon {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.stageFlash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 55%, #000 25%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+  animation: stageFlash 1.6s ease forwards;
+}
+
+.stageFlashIcon { font-size: 28px; }
+
+@keyframes stageFlash {
+  0% { opacity: 0; transform: scale(0.9); }
+  10% { opacity: 1; transform: scale(1); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.05); }
+}

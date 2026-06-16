@@ -36,9 +36,9 @@ export default function App() {
       <div className={styles.layout}>
         <section className={styles.gameSection}>
           <p className={styles.hint}>
-            Flechas · <kbd>Space</kbd> para iniciar/pausar · desliza en móvil
+            Flechas/WASD · <kbd>Space</kbd> para iniciar/pausar · joystick táctil en móvil
           </p>
-          <Game onGameOver={setLastGame} darkMode={darkMode} />
+          <Game onGameOver={setLastGame} />
           {lastGame && (
             <ScoreForm
               score={lastGame.score}

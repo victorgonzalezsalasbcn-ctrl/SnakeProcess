@@ -1,86 +1,94 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import styles from './Game.module.css'
+import ScoreBoard from './ScoreBoard'
+import PerkModal from './PerkModal'
+import VirtualJoystick, { clampToRadius, getDirectionFromDelta } from './VirtualJoystick'
+import { getStage, getStageIndex } from '../game/stages'
+import { ENEMY_TYPES, spawnEnemyOfType } from '../game/enemies'
+import { POWERUP_TYPES, pickRandomPowerupType, stepToward, GEM_BONUS_SCORE } from '../game/powerups'
+import { pickRandomPerks } from '../game/perks'
 
 const CELL = 18, COLS = 20, ROWS = 20
 const W = COLS * CELL, H = ROWS * CELL
-const MAX_ENEMIES = 5
-
-const LIGHT = {
-  bg: '#f2faf5', grid: 'rgba(0,0,0,0.04)',
-  snakeHead: '#5aab7e', snakeBodyA: '#7dc49a', snakeBodyB: '#a8d8be',
-  food: '#f4a0a0', foodStem: '#8abe78',
-  enemy: '#f4b890', enemyBorder: '#e87a5a', enemyEye: '#3a1a0a',
-  particle: '#f4d0a0',
-  overlayBg: 'rgba(242,250,245,0.92)', overlayText: '#1a3328', overlayMuted: '#6b9e80',
-}
-const DARK = {
-  bg: '#0f1f17', grid: 'rgba(255,255,255,0.04)',
-  snakeHead: '#5aab7e', snakeBodyA: '#3d8a5f', snakeBodyB: '#2a6444',
-  food: '#e87a8a', foodStem: '#6aaa66',
-  enemy: '#e8906a', enemyBorder: '#c45a3a', enemyEye: '#fff',
-  particle: '#f4c880',
-  overlayBg: 'rgba(10,20,15,0.93)', overlayText: '#d4f0e0', overlayMuted: '#6aaa88',
-}
+const MAX_ENEMIES_CAP = 12
+const PICKUP_LIFETIME = 8000
+const BEST_KEY = 'snake_best'
 
 function rand(n) { return Math.floor(Math.random() * n) }
 
-function placeFood(snake, enemies) {
+function randomFreeCell(blocked) {
   let pos
   do { pos = { x: rand(COLS), y: rand(ROWS) } }
-  while (
-    snake.some(s => s.x === pos.x && s.y === pos.y) ||
-    enemies.some(e => e.x === pos.x && e.y === pos.y)
-  )
+  while (blocked.some(p => p.x === pos.x && p.y === pos.y))
   return pos
 }
 
-function spawnEnemy(snake, enemies) {
-  let pos, tries = 0
-  do {
-    pos = { x: rand(COLS), y: rand(ROWS) }
-    tries++
-  } while (
-    tries < 50 && (
-      snake.some(s => s.x === pos.x && s.y === pos.y) ||
-      enemies.some(e => e.x === pos.x && e.y === pos.y) ||
-      Math.abs(pos.x - snake[0].x) + Math.abs(pos.y - snake[0].y) < 5
-    )
-  )
-  const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]
-  return { ...pos, dir: dirs[rand(4)] }
+function placeFood(snake, enemies, pickup) {
+  const blocked = pickup ? [...snake, ...enemies, pickup] : [...snake, ...enemies]
+  return randomFreeCell(blocked)
 }
 
-function moveEnemy(enemy, snake, enemies) {
-  let { x, y, dir } = enemy
-  const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]
-
-  if (Math.random() < 0.25) dir = dirs[rand(4)]
-
-  let nx = x + dir.x, ny = y + dir.y
-
-  if (nx < 0 || nx >= COLS) { dir = { x: -dir.x, y: dir.y }; nx = x + dir.x }
-  if (ny < 0 || ny >= ROWS) { dir = { x: dir.x, y: -dir.y }; ny = y + dir.y }
-
-  const blocked =
-    snake.some(s => s.x === nx && s.y === ny) ||
-    enemies.some(e => e !== enemy && e.x === nx && e.y === ny)
-
-  if (blocked) return { ...enemy, dir: dirs[rand(4)] }
-  return { x: nx, y: ny, dir }
+function spawnPickup(snake, enemies, food) {
+  const pos = randomFreeCell([...snake, ...enemies, food])
+  return { ...pos, type: pickRandomPowerupType(), expiresAt: Date.now() + PICKUP_LIFETIME }
 }
 
-export default function Game({ onGameOver, darkMode }) {
+function queueDirection(s, d) {
+  const last = s.queue.length ? s.queue[s.queue.length - 1] : s.dir
+  if (d.x === last.x && d.y === last.y) return
+  if (d.x === -last.x && d.y === -last.y) return
+  const bufferSize = s.run.inputBufferSize || 1
+  if (s.queue.length >= bufferSize) return
+  s.queue.push(d)
+}
+
+function addOrRefreshEffect(s, typeKey) {
+  const def = POWERUP_TYPES[typeKey]
+  const now = Date.now()
+  const existing = s.activeEffects.find(e => e.type === typeKey)
+  if (existing) existing.expiresAt = now + def.duration
+  else s.activeEffects.push({ id: `${typeKey}-${now}`, type: typeKey, icon: def.icon, label: def.label, color: def.color, duration: def.duration, expiresAt: now + def.duration })
+}
+
+function computeStepDuration(s) {
+  const stage = getStage(s.score)
+  let dur = stage.speedMs + (s.run.speedModMs || 0)
+  if (s.activeEffects.some(e => e.type === 'speed')) dur *= 0.6
+  return Math.max(60, Math.round(dur))
+}
+
+function buildHud(s) {
+  const stage = getStage(s.score)
+  return {
+    score: s.score,
+    best: s.best,
+    stage: { name: stage.name, icon: stage.icon, accent: stage.theme.accent, index: stage.index },
+    shield: s.shield,
+    streak: s.run.streak || 0,
+    activeEffects: s.activeEffects.map(e => ({ ...e })),
+    stageFlashKey: s.stageFlashKey || 0,
+  }
+}
+
+function freshRun() {
+  return {
+    inputBufferSize: 1, growthEvery: 1, growthCounter: 0,
+    scoreMultiplier: 1, speedModMs: 0, enemySlowFactor: 1,
+    pickupChanceBonus: 0, thickSkin: false, streak: 0,
+  }
+}
+
+export default function Game({ onGameOver }) {
   const canvasRef = useRef(null)
   const stateRef = useRef(null)
-  const darkRef = useRef(darkMode)
   const touchRef = useRef(null)
   const particlesRef = useRef([])
   const rafRef = useRef(null)
   const tickRef = useRef(0)
 
-  useEffect(() => { darkRef.current = darkMode }, [darkMode])
-
-  const c = () => darkRef.current ? DARK : LIGHT
+  const [hud, setHud] = useState(() => buildHud({ score: 0, best: 0, run: freshRun(), activeEffects: [], shield: false, stageFlashKey: 0 }))
+  const [perkModalData, setPerkModalData] = useState(null)
+  const [joystick, setJoystick] = useState(null)
 
   const spawnParticles = (x, y) => {
     for (let i = 0; i < 8; i++) {
@@ -99,7 +107,8 @@ export default function Game({ onGameOver, darkMode }) {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     const s = stateRef.current
-    const t = c()
+    if (!s) return
+    const t = getStage(s.score).theme
     const now = Date.now()
 
     ctx.clearRect(0, 0, W, H)
@@ -115,20 +124,35 @@ export default function Game({ onGameOver, darkMode }) {
       ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(W, j * CELL); ctx.stroke()
     }
 
+    const frac = s.paused || s.awaitingPerk ? 1 : Math.min(1, (now - s.lastStepTime) / s.stepDuration)
+    const interpHead = {
+      x: s.prevHead.x + (s.snake[0].x - s.prevHead.x) * frac,
+      y: s.prevHead.y + (s.snake[0].y - s.prevHead.y) * frac,
+    }
+
     s.snake.forEach((seg, i) => {
       const ratio = i / s.snake.length
+      const px = i === 0 ? interpHead.x : seg.x
+      const py = i === 0 ? interpHead.y : seg.y
       ctx.fillStyle = i === 0 ? t.snakeHead
         : ratio < 0.5 ? t.snakeBodyA : t.snakeBodyB
       ctx.globalAlpha = Math.max(0.3, 1 - ratio * 0.6)
       ctx.beginPath()
-      ctx.roundRect(seg.x * CELL + 1, seg.y * CELL + 1, CELL - 2, CELL - 2, i === 0 ? 6 : 3)
+      ctx.roundRect(px * CELL + 1, py * CELL + 1, CELL - 2, CELL - 2, i === 0 ? 6 : 3)
       ctx.fill()
       ctx.globalAlpha = 1
 
       if (i === 0) {
+        if (s.shield) {
+          ctx.strokeStyle = '#7ed4e0'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(px * CELL + CELL / 2, py * CELL + CELL / 2, CELL * 0.8, 0, Math.PI * 2)
+          ctx.stroke()
+        }
         const { dir } = s
-        const hx = seg.x * CELL + CELL / 2
-        const hy = seg.y * CELL + CELL / 2
+        const hx = px * CELL + CELL / 2
+        const hy = py * CELL + CELL / 2
         const eyeOff = dir.y === 0
           ? [{ dx: 0, dy: -2.5 }, { dx: 0, dy: 2.5 }]
           : [{ dx: -2.5, dy: 0 }, { dx: 2.5, dy: 0 }]
@@ -147,7 +171,6 @@ export default function Game({ onGameOver, darkMode }) {
       }
     })
 
-    // Food with pulse
     const pulse = 0.8 + Math.sin(now / 300) * 0.15
     const fr = (CELL / 2 - 2) * pulse
     ctx.fillStyle = t.food
@@ -157,31 +180,49 @@ export default function Game({ onGameOver, darkMode }) {
     ctx.fillStyle = t.foodStem
     ctx.fillRect(s.food.x * CELL + CELL / 2 - 1, s.food.y * CELL + 2, 2, 5)
 
-    // Enemies
-    s.enemies.forEach(e => {
-      const ep = 0.85 + Math.sin(now / 400 + e.x) * 0.12
+    if (s.pickup) {
+      const def = POWERUP_TYPES[s.pickup.type]
+      const timeLeft = s.pickup.expiresAt - now
+      const blink = timeLeft < 2000 ? (Math.sin(now / 100) > 0) : true
+      if (blink) {
+        ctx.globalAlpha = 0.92
+        ctx.fillStyle = def.color
+        ctx.beginPath()
+        ctx.roundRect(s.pickup.x * CELL + 1, s.pickup.y * CELL + 1, CELL - 2, CELL - 2, 5)
+        ctx.fill()
+        ctx.globalAlpha = 1
+        ctx.font = `${CELL - 6}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(def.icon, s.pickup.x * CELL + CELL / 2, s.pickup.y * CELL + CELL / 2 + 1)
+      }
+    }
+
+    const frozen = s.activeEffects.some(e => e.type === 'freeze')
+    s.enemies.forEach(en => {
+      const ep = 0.85 + Math.sin(now / 400 + en.x) * 0.12
       const er = (CELL / 2 - 1) * ep
-      ctx.fillStyle = t.enemy
+      ctx.globalAlpha = en.intangible ? 0.35 : 1
+      ctx.fillStyle = frozen ? '#a0c4f0' : t.enemy
       ctx.strokeStyle = t.enemyBorder
       ctx.lineWidth = 1.5
       ctx.beginPath()
-      ctx.roundRect(e.x * CELL + CELL / 2 - er, e.y * CELL + CELL / 2 - er, er * 2, er * 2, 4)
+      ctx.roundRect(en.x * CELL + CELL / 2 - er, en.y * CELL + CELL / 2 - er, er * 2, er * 2, 4)
       ctx.fill()
       ctx.stroke()
-      // X eyes
       ctx.strokeStyle = t.enemyEye
       ctx.lineWidth = 1.5
-      const ex = e.x * CELL + CELL / 2
-      const ey = e.y * CELL + CELL / 2
+      const ex = en.x * CELL + CELL / 2
+      const ey = en.y * CELL + CELL / 2
       ;[[-4, -3], [1, -3]].forEach(([ox]) => {
-        const px = ex + ox
-        const py = ey - 1
-        ctx.beginPath(); ctx.moveTo(px - 1.5, py - 1.5); ctx.lineTo(px + 1.5, py + 1.5); ctx.stroke()
-        ctx.beginPath(); ctx.moveTo(px + 1.5, py - 1.5); ctx.lineTo(px - 1.5, py + 1.5); ctx.stroke()
+        const px2 = ex + ox
+        const py2 = ey - 1
+        ctx.beginPath(); ctx.moveTo(px2 - 1.5, py2 - 1.5); ctx.lineTo(px2 + 1.5, py2 + 1.5); ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(px2 + 1.5, py2 - 1.5); ctx.lineTo(px2 - 1.5, py2 + 1.5); ctx.stroke()
       })
+      ctx.globalAlpha = 1
     })
 
-    // Particles
     particlesRef.current = particlesRef.current.filter(p => p.life > 0)
     particlesRef.current.forEach(p => {
       ctx.globalAlpha = p.life
@@ -199,10 +240,14 @@ export default function Game({ onGameOver, darkMode }) {
     clearInterval(s.loop)
     s.running = false
     cancelAnimationFrame(rafRef.current)
+    if (s.score > s.best) {
+      s.best = s.score
+      localStorage.setItem(BEST_KEY, String(s.best))
+    }
     draw()
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    const t = c()
+    const t = getStage(s.score).theme
     ctx.fillStyle = t.overlayBg
     ctx.fillRect(0, 0, W, H)
     ctx.fillStyle = t.overlayText
@@ -211,56 +256,136 @@ export default function Game({ onGameOver, darkMode }) {
     ctx.fillText('Game Over', W / 2, H / 2 - 18)
     ctx.font = '400 15px system-ui, sans-serif'
     ctx.fillStyle = t.overlayMuted
-    ctx.fillText(`${s.score} puntos · Nivel ${s.level}`, W / 2, H / 2 + 12)
+    ctx.fillText(`${s.score} puntos · Etapa ${s.stageIdx + 1}`, W / 2, H / 2 + 12)
     ctx.font = '400 13px system-ui, sans-serif'
     ctx.fillText('Pulsa Inicio o toca para repetir', W / 2, H / 2 + 36)
-    onGameOver({ score: s.score, level: s.level })
+    setHud(buildHud(s))
+    onGameOver({ score: s.score, level: s.stageIdx + 1 })
   }, [draw, onGameOver])
+
+  const tryShield = useCallback((s) => {
+    if (!s.shield) return false
+    s.shield = false
+    s.run.streak = 0
+    spawnParticles(s.snake[0].x, s.snake[0].y)
+    return true
+  }, [])
 
   const step = useCallback(() => {
     const s = stateRef.current
     tickRef.current++
+    const now = Date.now()
 
-    s.dir = { ...s.nextDir }
+    const beforeEffects = s.activeEffects.length
+    s.activeEffects = s.activeEffects.filter(e => e.expiresAt > now)
+    let hudDirty = s.activeEffects.length !== beforeEffects
+
+    if (s.pickup && now > s.pickup.expiresAt) s.pickup = null
+
+    if (s.queue.length) s.dir = s.queue.shift()
     const head = { x: s.snake[0].x + s.dir.x, y: s.snake[0].y + s.dir.y }
 
-    if (
-      head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS ||
-      s.snake.some(seg => seg.x === head.x && seg.y === head.y) ||
-      s.enemies.some(e => e.x === head.x && e.y === head.y)
-    ) {
-      gameOver()
-      return
+    const hitWall = head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS
+    const hitSelf = s.snake.some(seg => seg.x === head.x && seg.y === head.y)
+    const hitEnemy = s.enemies.some(e => !e.intangible && e.x === head.x && e.y === head.y)
+
+    if (hitWall || hitSelf) { gameOver(); return }
+    if (hitEnemy) {
+      if (tryShield(s)) { setHud(buildHud(s)); return }
+      gameOver(); return
     }
 
+    s.prevHead = { ...s.snake[0] }
+    s.lastStepTime = now
     s.snake.unshift(head)
-    const ateFood = head.x === s.food.x && head.y === s.food.y
-    if (ateFood) {
-      s.score++
-      s.level = Math.floor(s.score / 5) + 1
-      spawnParticles(head.x, head.y)
-      s.food = placeFood(s.snake, s.enemies)
 
-      const targetEnemies = Math.min(MAX_ENEMIES, Math.floor(s.score / 3))
-      while (s.enemies.length < targetEnemies) {
-        s.enemies.push(spawnEnemy(s.snake, s.enemies))
+    const ateFood = head.x === s.food.x && head.y === s.food.y
+    const atePickup = !ateFood && s.pickup && head.x === s.pickup.x && head.y === s.pickup.y
+
+    if (ateFood) {
+      let gain = s.activeEffects.some(e => e.type === 'multiplier') ? 2 : 1
+      gain = Math.round(gain * (s.run.scoreMultiplier || 1))
+      s.score += gain
+      s.run.streak = (s.run.streak || 0) + 1
+      spawnParticles(head.x, head.y)
+
+      s.run.growthCounter = (s.run.growthCounter || 0) + 1
+      const every = s.run.growthEvery || 1
+      const grow = s.run.growthCounter % every === 0
+      if (!grow) s.snake.pop()
+
+      s.food = placeFood(s.snake, s.enemies, s.pickup)
+
+      if (!s.pickup) {
+        const chance = 0.35 + (s.run.pickupChanceBonus || 0)
+        if (Math.random() < chance) s.pickup = spawnPickup(s.snake, s.enemies, s.food)
       }
 
+      hudDirty = true
+
+      const newStageIdx = getStageIndex(s.score)
+      if (newStageIdx !== s.stageIdx) {
+        s.stageIdx = newStageIdx
+        const stageData = getStage(s.score)
+        if (!s.unlockedTypes.includes(stageData.enemyType)) s.unlockedTypes.push(stageData.enemyType)
+        s.stageFlashKey = (s.stageFlashKey || 0) + 1
+        if (s.run.thickSkin) s.shield = true
+        const spawnCount = ENEMY_TYPES[stageData.enemyType].spawnCount || 1
+        for (let i = 0; i < spawnCount; i++) {
+          if (s.enemies.length < MAX_ENEMIES_CAP) s.enemies.push(spawnEnemyOfType(stageData.enemyType, s.snake, s.enemies, COLS, ROWS))
+        }
+        clearInterval(s.loop)
+        s.awaitingPerk = true
+        setPerkModalData({ stage: stageData, perks: pickRandomPerks(3) })
+        setHud(buildHud(s))
+        return
+      }
+
+      const targetEnemies = Math.min(MAX_ENEMIES_CAP, 2 + Math.floor(s.score / 4))
+      while (s.enemies.length < targetEnemies) {
+        const type = s.unlockedTypes[rand(s.unlockedTypes.length)]
+        s.enemies.push(spawnEnemyOfType(type, s.snake, s.enemies, COLS, ROWS))
+      }
+
+      const dur = computeStepDuration(s)
+      s.stepDuration = dur
       clearInterval(s.loop)
-      s.loop = setInterval(step, Math.max(80, 220 - s.level * 18))
+      s.loop = setInterval(step, dur)
     } else {
       s.snake.pop()
     }
 
-    if (tickRef.current % 3 === 0) {
-      s.enemies = s.enemies.map(e => moveEnemy(e, s.snake, s.enemies))
-      // check if an enemy walked into snake head after moving
-      if (s.enemies.some(e => e.x === s.snake[0].x && e.y === s.snake[0].y)) {
-        gameOver()
-        return
+    if (atePickup) {
+      const def = POWERUP_TYPES[s.pickup.type]
+      spawnParticles(s.pickup.x, s.pickup.y)
+      if (def.kind === 'instant') s.score += GEM_BONUS_SCORE
+      else if (def.kind === 'shield') s.shield = true
+      else addOrRefreshEffect(s, s.pickup.type)
+      s.pickup = null
+      hudDirty = true
+    }
+
+    if (s.activeEffects.some(e => e.type === 'magnet')) {
+      s.food = stepToward(s.food, s.snake[0])
+      if (s.pickup) s.pickup = { ...s.pickup, ...stepToward(s.pickup, s.snake[0]) }
+    }
+
+    if (!s.activeEffects.some(e => e.type === 'freeze')) {
+      const ctx = { snake: s.snake, enemies: s.enemies, cols: COLS, rows: ROWS, tick: tickRef.current }
+      s.enemies = s.enemies.map(en => {
+        const def = ENEMY_TYPES[en.type]
+        const effInterval = Math.max(1, Math.round(def.moveInterval * (s.run.enemySlowFactor || 1)))
+        if (tickRef.current % effInterval !== 0) return en
+        return def.move(en, ctx)
+      })
+      if (s.enemies.some(e => !e.intangible && e.x === s.snake[0].x && e.y === s.snake[0].y)) {
+        if (tryShield(s)) hudDirty = true
+        else { gameOver(); return }
       }
     }
-  }, [draw, gameOver])
+
+    if (hudDirty) setHud(buildHud(s))
+  }, [gameOver, tryShield])
 
   const renderLoop = useCallback(() => {
     draw()
@@ -273,52 +398,81 @@ export default function Game({ onGameOver, darkMode }) {
     cancelAnimationFrame(rafRef.current)
     tickRef.current = 0
     particlesRef.current = []
+    const initialSnake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }]
     Object.assign(s, {
-      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
-      dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 },
-      enemies: [], score: 0, level: 1, running: true, paused: false,
+      snake: initialSnake,
+      prevHead: { ...initialSnake[0] },
+      dir: { x: 1, y: 0 }, queue: [],
+      enemies: [], score: 0, run: freshRun(),
+      activeEffects: [], pickup: null, shield: false,
+      stageIdx: 0, unlockedTypes: [getStage(0).enemyType],
+      stageFlashKey: (s.stageFlashKey || 0) + 1,
+      running: true, paused: false, awaitingPerk: false,
+      lastStepTime: Date.now(), stepDuration: getStage(0).speedMs,
     })
-    s.food = placeFood(s.snake, [])
+    s.food = placeFood(s.snake, [], null)
+    setPerkModalData(null)
+    setJoystick(null)
+    setHud(buildHud(s))
     rafRef.current = requestAnimationFrame(renderLoop)
-    s.loop = setInterval(step, 220)
+    s.loop = setInterval(step, s.stepDuration)
   }, [renderLoop, step])
 
   const togglePause = useCallback(() => {
     const s = stateRef.current
-    if (!s.running) return
+    if (!s.running || s.awaitingPerk) return
     s.paused = !s.paused
     if (s.paused) {
       clearInterval(s.loop)
       cancelAnimationFrame(rafRef.current)
     } else {
       rafRef.current = requestAnimationFrame(renderLoop)
-      s.loop = setInterval(step, Math.max(80, 220 - s.level * 18))
+      s.loop = setInterval(step, s.stepDuration)
     }
   }, [renderLoop, step])
 
+  const handlePerkPick = useCallback((perk) => {
+    const s = stateRef.current
+    perk.apply(s.run)
+    setPerkModalData(null)
+    s.awaitingPerk = false
+    s.lastStepTime = Date.now()
+    s.stepDuration = computeStepDuration(s)
+    s.loop = setInterval(step, s.stepDuration)
+    setHud(buildHud(s))
+  }, [step])
+
   useEffect(() => {
+    const best = Number(localStorage.getItem(BEST_KEY) || 0)
+    const initialSnake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }]
     stateRef.current = {
-      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
-      dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 },
-      food: { x: 15, y: 10 }, enemies: [],
-      score: 0, level: 1, running: false, paused: false, loop: null,
+      snake: initialSnake, prevHead: { ...initialSnake[0] },
+      dir: { x: 1, y: 0 }, queue: [],
+      food: { x: 15, y: 10 }, pickup: null, enemies: [],
+      score: 0, best, run: freshRun(), activeEffects: [], shield: false,
+      stageIdx: 0, unlockedTypes: [getStage(0).enemyType], stageFlashKey: 0,
+      running: false, paused: false, awaitingPerk: false, loop: null,
+      lastStepTime: Date.now(), stepDuration: getStage(0).speedMs,
     }
+    setHud(buildHud(stateRef.current))
     draw()
 
     const DIRS = {
-      ArrowUp: {x:0,y:-1}, ArrowDown: {x:0,y:1},
-      ArrowLeft: {x:-1,y:0}, ArrowRight: {x:1,y:0},
+      ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 },
+      ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
+      w: { x: 0, y: -1 }, s: { x: 0, y: 1 }, a: { x: -1, y: 0 }, d: { x: 1, y: 0 },
     }
     const onKey = (e) => {
       const s = stateRef.current
       if (e.code === 'Space') {
         e.preventDefault()
+        if (s.awaitingPerk) return
         if (!s.running) start(); else togglePause()
         return
       }
       const d = DIRS[e.key]
-      if (d && !(d.x === -s.dir.x && d.y === -s.dir.y)) {
-        s.nextDir = d
+      if (d) {
+        queueDirection(s, d)
         e.preventDefault()
       }
     }
@@ -326,31 +480,40 @@ export default function Game({ onGameOver, darkMode }) {
 
     const canvas = canvasRef.current
     const onTouchStart = (e) => {
-      touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      const rect = canvas.getBoundingClientRect()
+      touchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, moved: false }
+      setJoystick({
+        origin: { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top },
+        knob: { dx: 0, dy: 0 },
+      })
     }
-    const onTouchEnd = (e) => {
+    const onTouchMove = (e) => {
       if (!touchRef.current) return
-      const dx = e.changedTouches[0].clientX - touchRef.current.x
-      const dy = e.changedTouches[0].clientY - touchRef.current.y
-      const s = stateRef.current
-
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+      const dx = e.touches[0].clientX - touchRef.current.startX
+      const dy = e.touches[0].clientY - touchRef.current.startY
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) touchRef.current.moved = true
+      setJoystick(j => j ? { ...j, knob: clampToRadius(dx, dy) } : j)
+      const d = getDirectionFromDelta(dx, dy)
+      if (d) queueDirection(stateRef.current, d)
+    }
+    const onTouchEnd = () => {
+      const wasMoved = touchRef.current?.moved
+      setJoystick(null)
+      touchRef.current = null
+      if (!wasMoved) {
+        const s = stateRef.current
+        if (s.awaitingPerk) return
         if (!s.running) start(); else togglePause()
-        return
       }
-
-      let d
-      if (Math.abs(dx) > Math.abs(dy)) d = dx > 0 ? {x:1,y:0} : {x:-1,y:0}
-      else d = dy > 0 ? {x:0,y:1} : {x:0,y:-1}
-
-      if (!(d.x === -s.dir.x && d.y === -s.dir.y)) s.nextDir = d
     }
     canvas.addEventListener('touchstart', onTouchStart, { passive: true })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: true })
     canvas.addEventListener('touchend', onTouchEnd, { passive: true })
 
     return () => {
       window.removeEventListener('keydown', onKey)
       canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchmove', onTouchMove)
       canvas.removeEventListener('touchend', onTouchEnd)
       clearInterval(stateRef.current?.loop)
       cancelAnimationFrame(rafRef.current)
@@ -358,20 +521,19 @@ export default function Game({ onGameOver, darkMode }) {
   }, [draw, start, togglePause])
 
   const setDir = (key) => {
-    const DIRS = { UP:{x:0,y:-1}, DOWN:{x:0,y:1}, LEFT:{x:-1,y:0}, RIGHT:{x:1,y:0} }
-    const s = stateRef.current
+    const DIRS = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } }
     const d = DIRS[key]
-    if (d && !(d.x === -s.dir.x && d.y === -s.dir.y)) s.nextDir = d
+    if (d) queueDirection(stateRef.current, d)
   }
 
   return (
     <div className={styles.wrap}>
-      <canvas
-        ref={canvasRef}
-        width={W}
-        height={H}
-        className={styles.canvas}
-      />
+      <ScoreBoard hud={hud} />
+      <div className={styles.canvasBox}>
+        <canvas ref={canvasRef} width={W} height={H} className={styles.canvas} />
+        <VirtualJoystick origin={joystick?.origin} knob={joystick?.knob} />
+        {perkModalData && <PerkModal {...perkModalData} onPick={handlePerkPick} />}
+      </div>
       <div className={styles.controls}>
         <button onClick={start} className={styles.btn}>Inicio</button>
         <button onClick={togglePause} className={styles.btn}>Pausa</button>

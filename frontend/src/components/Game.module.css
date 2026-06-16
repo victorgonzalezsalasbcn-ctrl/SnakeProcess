@@ -5,6 +5,12 @@
   gap: 12px;
 }
 
+.canvasBox {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
 .canvas {
   border: 1px solid var(--border);
   border-radius: var(--radius);
