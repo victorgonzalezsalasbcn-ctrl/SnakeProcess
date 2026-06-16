@@ -4,7 +4,7 @@ export const STAGES = [
   {
     name: 'Bosque',
     icon: '🌲',
-    enemyType: 'wanderer',
+    enemyTypes: ['wanderer'],
     speedMs: 220,
     scenery: [{ icon: 'grass', count: 14 }],
     groundTile: 'grass',
@@ -20,7 +20,7 @@ export const STAGES = [
   {
     name: 'Desierto',
     icon: '🏜️',
-    enemyType: 'hunter',
+    enemyTypes: ['hunter', 'sandworm'],
     speedMs: 195,
     scenery: [{ icon: 'cactus', count: 7 }, { icon: 'rock', count: 5 }],
     groundTile: 'sand',
@@ -36,7 +36,7 @@ export const STAGES = [
   {
     name: 'Hielo',
     icon: '❄️',
-    enemyType: 'sprinter',
+    enemyTypes: ['sprinter'],
     speedMs: 170,
     scenery: [{ icon: 'ice', count: 6 }, { icon: 'snowflake', count: 8 }],
     groundTile: 'ice',
@@ -52,7 +52,7 @@ export const STAGES = [
   {
     name: 'Lava',
     icon: '🌋',
-    enemyType: 'phantom',
+    enemyTypes: ['phantom'],
     speedMs: 150,
     scenery: [{ icon: 'volcano', count: 4 }, { icon: 'rock', count: 6 }, { icon: 'fire', count: 5 }],
     groundTile: 'rock',
@@ -68,7 +68,7 @@ export const STAGES = [
   {
     name: 'Noche Cósmica',
     icon: '🌌',
-    enemyType: 'swarm',
+    enemyTypes: ['swarm'],
     speedMs: 135,
     scenery: [{ icon: 'star', count: 10 }, { icon: 'galaxy', count: 3 }],
     groundTile: 'space',
@@ -84,7 +84,7 @@ export const STAGES = [
   {
     name: 'Caos',
     icon: '🌀',
-    enemyType: 'swarm',
+    enemyTypes: ['swarm'],
     speedMs: 115,
     scenery: [{ icon: 'party', count: 8 }, { icon: 'star', count: 6 }],
     groundTile: 'confetti',

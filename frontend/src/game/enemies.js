@@ -49,6 +49,25 @@ function moveAggressive(enemy, ctx, aggression) {
   return { ...enemy, x: nx, y: ny, dir }
 }
 
+const SANDWORM_DURATIONS = {
+  hidden: () => 2200 + Math.random() * 1800,
+  emerging: () => 350,
+  exposed: () => 1300,
+  submerging: () => 350,
+}
+const SANDWORM_NEXT_PHASE = { hidden: 'emerging', emerging: 'exposed', exposed: 'submerging', submerging: 'hidden' }
+
+// Stays intangible and tunnels underground most of the time; briefly
+// surfaces (exposed) where it can actually collide, then dives back down.
+function moveSandworm(enemy, ctx) {
+  const now = Date.now()
+  if (now < enemy.phaseUntil) {
+    return enemy.phase === 'hidden' ? moveAvoidant(enemy, ctx) : enemy
+  }
+  const next = SANDWORM_NEXT_PHASE[enemy.phase] || 'hidden'
+  return { ...enemy, phase: next, phaseUntil: now + SANDWORM_DURATIONS[next](), intangible: next !== 'exposed' }
+}
+
 export const ENEMY_TYPES = {
   wanderer: {
     label: 'Errante',
@@ -80,6 +99,11 @@ export const ENEMY_TYPES = {
     spawnCount: 3,
     move: (enemy, ctx) => moveAggressive(enemy, ctx, 0.45),
   },
+  sandworm: {
+    label: 'Gusano de arena',
+    moveInterval: 4,
+    move: (enemy, ctx) => moveSandworm(enemy, ctx),
+  },
 }
 
 export function spawnEnemyOfType(type, snake, enemies, cols, rows) {
@@ -94,5 +118,9 @@ export function spawnEnemyOfType(type, snake, enemies, cols, rows) {
       Math.abs(pos.x - snake[0].x) + Math.abs(pos.y - snake[0].y) < 5
     )
   )
-  return { ...pos, dir: ALL_DIRS[rand(4)], type, intangible: false }
+  const base = { ...pos, dir: ALL_DIRS[rand(4)], type, intangible: false }
+  if (type === 'sandworm') {
+    return { ...base, phase: 'hidden', phaseUntil: Date.now() + SANDWORM_DURATIONS.hidden(), intangible: true }
+  }
+  return base
 }

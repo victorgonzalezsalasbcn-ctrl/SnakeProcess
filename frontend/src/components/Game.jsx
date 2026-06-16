@@ -7,7 +7,7 @@ import { getStage, getStageIndex, DIMENSION_THEME } from '../game/stages'
 import { ENEMY_TYPES, spawnEnemyOfType } from '../game/enemies'
 import { POWERUP_TYPES, pickRandomPowerupType, stepToward, GEM_BONUS_SCORE, PORTAL } from '../game/powerups'
 import { pickRandomPerks } from '../game/perks'
-import { drawSprite, ENEMY_SPRITES, POWERUP_SPRITES } from '../game/sprites'
+import { drawSprite, drawSpriteOutlined, ENEMY_SPRITES, POWERUP_SPRITES } from '../game/sprites'
 import { buildTilePattern } from '../game/pixel'
 
 const CELL = 18, COLS = 20, ROWS = 20
@@ -46,37 +46,62 @@ function spawnDecorParticle(stageIdx) {
 function paintGroundTile(ctx, size, bg, type, variant) {
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, size, size)
-  const speck = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h) }
+  const u = size / 32
+  const speck = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x * u, y * u, w * u, h * u) }
   switch (type) {
     case 'grass':
+      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')
       speck(4, 6, 3, 3, variant === 0 ? '#173d27' : '#1a4a2e')
       speck(20, 14, 3, 3, variant === 0 ? '#1a4a2e' : '#173d27')
       speck(12, 24, 3, 3, variant === 0 ? '#173d27' : '#1a4a2e')
       speck(28, 28, 3, 3, '#163a24')
+      speck(2, 18, 2, 5, '#1f5c35')
+      speck(16, 2, 2, 5, '#1f5c35')
+      speck(26, 8, 1, 4, '#2a6e3f')
+      speck(9, 14, 1, 3, '#2a6e3f')
       break
     case 'sand':
+      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')
       speck(6, 8, 4, 2, variant === 0 ? '#f0d090' : '#e0c080')
       speck(22, 20, 4, 2, variant === 0 ? '#e0c080' : '#f0d090')
       speck(14, 28, 3, 2, '#d8b878')
+      speck(2, 24, 6, 1, '#c8a868')
+      speck(18, 4, 5, 1, '#c8a868')
+      speck(28, 14, 2, 2, '#fae0a8')
       break
     case 'ice':
+      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)')
       speck(8, 10, 2, 2, variant === 0 ? '#fff' : 'rgba(255,255,255,0.4)')
       speck(24, 22, 2, 2, variant === 1 ? '#fff' : 'rgba(255,255,255,0.4)')
       speck(16, 6, 6, 1, 'rgba(255,255,255,0.25)')
+      speck(2, 2, 1, 8, 'rgba(255,255,255,0.2)')
+      speck(20, 26, 8, 1, 'rgba(255,255,255,0.2)')
+      speck(28, 4, 2, 2, '#cdf3ff')
       break
     case 'rock':
+      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,120,40,0.03)' : 'rgba(0,0,0,0.04)')
       speck(10, 10, 3, 3, variant === 0 ? '#ff7a3a' : '#b8431a')
       speck(26, 24, 3, 3, variant === 1 ? '#ff7a3a' : '#b8431a')
+      speck(2, 20, 6, 1, '#3a2424')
+      speck(18, 2, 8, 1, '#3a2424')
+      speck(6, 28, 2, 2, '#ff9a5a')
       break
     case 'space':
       speck(6, 8, 2, 2, variant === 0 ? '#fff' : 'rgba(255,255,255,0.3)')
       speck(26, 6, 2, 2, variant === 1 ? '#fff' : 'rgba(255,255,255,0.3)')
       speck(16, 26, 2, 2, variant === 0 ? '#c79bff' : 'rgba(199,155,255,0.3)')
+      speck(2, 2, 1, 1, '#fff')
+      speck(30, 16, 1, 1, '#fff')
+      speck(12, 18, 1, 1, 'rgba(255,255,255,0.5)')
+      speck(22, 30, 1, 1, '#ff9ec2')
       break
     case 'confetti':
       speck(6, 6, 3, 3, variant === 0 ? '#ff5da0' : '#ffd23a')
       speck(24, 12, 3, 3, variant === 0 ? '#5dffb0' : '#8fe4ff')
       speck(12, 26, 3, 3, variant === 0 ? '#8fe4ff' : '#ff5da0')
+      speck(2, 18, 2, 2, '#ffd23a')
+      speck(28, 26, 2, 2, '#ff5da0')
+      speck(18, 2, 2, 2, '#5dffb0')
       break
     default:
       break
@@ -454,24 +479,17 @@ export default function Game({ onGameOver }) {
 
     const frozen = s.activeEffects.some(e => e.type === 'freeze')
     s.enemies.forEach(en => {
-      const ep = 0.85 + Math.sin(now / 400 + en.x) * 0.12
-      const er = (CELL / 2 - 1) * ep
-      const enemyColor = frozen ? '#a0c4f0' : t.enemy
-      const baseAlpha = en.intangible ? 0.35 : 1
       const ex = en.x * CELL + CELL / 2
       const ey = en.y * CELL + CELL / 2
-
-      ctx.globalAlpha = baseAlpha * 0.5
-      ctx.fillStyle = enemyColor
-      ctx.shadowColor = enemyColor
-      ctx.shadowBlur = 12
-      ctx.beginPath()
-      ctx.arc(ex, ey, er, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.shadowBlur = 0
+      const isSandworm = en.type === 'sandworm'
+      const spriteName = isSandworm
+        ? (en.phase === 'exposed' || en.phase === 'emerging' ? 'sandworm' : 'mound')
+        : ENEMY_SPRITES[en.type]
+      const baseAlpha = !isSandworm && en.intangible ? 0.35 : 1
+      const outlineColor = frozen ? '#bcdfff' : '#0a0612'
 
       ctx.globalAlpha = baseAlpha
-      drawSprite(ctx, ENEMY_SPRITES[en.type], ex, ey, CELL * 0.95, now + en.x * 137)
+      drawSpriteOutlined(ctx, spriteName, ex, ey, CELL * 1.1, now + en.x * 137, outlineColor)
       ctx.globalAlpha = 1
     })
 
@@ -588,13 +606,16 @@ export default function Game({ onGameOver }) {
       if (newStageIdx !== s.stageIdx) {
         s.stageIdx = newStageIdx
         const stageData = getStage(s.score)
-        if (!s.unlockedTypes.includes(stageData.enemyType)) s.unlockedTypes.push(stageData.enemyType)
+        s.unlockedTypes = stageData.enemyTypes
+        s.enemies = s.enemies.filter(en => stageData.enemyTypes.includes(en.type))
         s.stageFlashKey = (s.stageFlashKey || 0) + 1
         if (s.run.thickSkin) s.shield = true
-        const spawnCount = ENEMY_TYPES[stageData.enemyType].spawnCount || 1
-        for (let i = 0; i < spawnCount; i++) {
-          if (s.enemies.length < MAX_ENEMIES_CAP) s.enemies.push(spawnEnemyOfType(stageData.enemyType, s.snake, s.enemies, COLS, ROWS))
-        }
+        stageData.enemyTypes.forEach(type => {
+          const spawnCount = ENEMY_TYPES[type].spawnCount || 1
+          for (let i = 0; i < spawnCount; i++) {
+            if (s.enemies.length < MAX_ENEMIES_CAP) s.enemies.push(spawnEnemyOfType(type, s.snake, s.enemies, COLS, ROWS))
+          }
+        })
         clearInterval(s.loop)
         s.awaitingPerk = true
         setPerkModalData({ stage: stageData, perks: pickRandomPerks(3) })
@@ -679,7 +700,7 @@ export default function Game({ onGameOver }) {
       dir: { x: 1, y: 0 }, queue: [],
       enemies: [], score: 0, run: freshRun(),
       activeEffects: [], pickup: null, portal: null, portalExpiresAt: 0, shield: false,
-      stageIdx: 0, unlockedTypes: [getStage(0).enemyType],
+      stageIdx: 0, unlockedTypes: getStage(0).enemyTypes,
       stageFlashKey: (s.stageFlashKey || 0) + 1,
       running: true, paused: false, awaitingPerk: false,
       lastStepTime: Date.now(), stepDuration: getStage(0).speedMs,
@@ -724,7 +745,7 @@ export default function Game({ onGameOver }) {
       dir: { x: 1, y: 0 }, queue: [],
       food: { x: 15, y: 10 }, pickup: null, portal: null, portalExpiresAt: 0, enemies: [],
       score: 0, best, run: freshRun(), activeEffects: [], shield: false,
-      stageIdx: 0, unlockedTypes: [getStage(0).enemyType], stageFlashKey: 0,
+      stageIdx: 0, unlockedTypes: getStage(0).enemyTypes, stageFlashKey: 0,
       running: false, paused: false, awaitingPerk: false, loop: null,
       lastStepTime: Date.now(), stepDuration: getStage(0).speedMs,
     }
