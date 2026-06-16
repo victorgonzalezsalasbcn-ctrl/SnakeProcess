@@ -134,21 +134,27 @@ export default function Game({ onGameOver }) {
       const ratio = i / s.snake.length
       const px = i === 0 ? interpHead.x : seg.x
       const py = i === 0 ? interpHead.y : seg.y
-      ctx.fillStyle = i === 0 ? t.snakeHead
-        : ratio < 0.5 ? t.snakeBodyA : t.snakeBodyB
+      const segColor = i === 0 ? t.snakeHead : ratio < 0.5 ? t.snakeBodyA : t.snakeBodyB
+      ctx.fillStyle = segColor
       ctx.globalAlpha = Math.max(0.3, 1 - ratio * 0.6)
+      ctx.shadowColor = segColor
+      ctx.shadowBlur = i === 0 ? 14 : 7
       ctx.beginPath()
       ctx.roundRect(px * CELL + 1, py * CELL + 1, CELL - 2, CELL - 2, i === 0 ? 6 : 3)
       ctx.fill()
+      ctx.shadowBlur = 0
       ctx.globalAlpha = 1
 
       if (i === 0) {
         if (s.shield) {
-          ctx.strokeStyle = '#7ed4e0'
+          ctx.strokeStyle = '#bdfbff'
+          ctx.shadowColor = '#bdfbff'
+          ctx.shadowBlur = 10
           ctx.lineWidth = 2
           ctx.beginPath()
           ctx.arc(px * CELL + CELL / 2, py * CELL + CELL / 2, CELL * 0.8, 0, Math.PI * 2)
           ctx.stroke()
+          ctx.shadowBlur = 0
         }
         const { dir } = s
         const hx = px * CELL + CELL / 2
@@ -174,9 +180,12 @@ export default function Game({ onGameOver }) {
     const pulse = 0.8 + Math.sin(now / 300) * 0.15
     const fr = (CELL / 2 - 2) * pulse
     ctx.fillStyle = t.food
+    ctx.shadowColor = t.food
+    ctx.shadowBlur = 16
     ctx.beginPath()
     ctx.arc(s.food.x * CELL + CELL / 2, s.food.y * CELL + CELL / 2, fr, 0, Math.PI * 2)
     ctx.fill()
+    ctx.shadowBlur = 0
     ctx.fillStyle = t.foodStem
     ctx.fillRect(s.food.x * CELL + CELL / 2 - 1, s.food.y * CELL + 2, 2, 5)
 
@@ -187,9 +196,12 @@ export default function Game({ onGameOver }) {
       if (blink) {
         ctx.globalAlpha = 0.92
         ctx.fillStyle = def.color
+        ctx.shadowColor = def.color
+        ctx.shadowBlur = 14
         ctx.beginPath()
         ctx.roundRect(s.pickup.x * CELL + 1, s.pickup.y * CELL + 1, CELL - 2, CELL - 2, 5)
         ctx.fill()
+        ctx.shadowBlur = 0
         ctx.globalAlpha = 1
         ctx.font = `${CELL - 6}px sans-serif`
         ctx.textAlign = 'center'
@@ -202,14 +214,18 @@ export default function Game({ onGameOver }) {
     s.enemies.forEach(en => {
       const ep = 0.85 + Math.sin(now / 400 + en.x) * 0.12
       const er = (CELL / 2 - 1) * ep
+      const enemyColor = frozen ? '#a0c4f0' : t.enemy
       ctx.globalAlpha = en.intangible ? 0.35 : 1
-      ctx.fillStyle = frozen ? '#a0c4f0' : t.enemy
+      ctx.fillStyle = enemyColor
       ctx.strokeStyle = t.enemyBorder
       ctx.lineWidth = 1.5
+      ctx.shadowColor = enemyColor
+      ctx.shadowBlur = 10
       ctx.beginPath()
       ctx.roundRect(en.x * CELL + CELL / 2 - er, en.y * CELL + CELL / 2 - er, er * 2, er * 2, 4)
       ctx.fill()
       ctx.stroke()
+      ctx.shadowBlur = 0
       ctx.strokeStyle = t.enemyEye
       ctx.lineWidth = 1.5
       const ex = en.x * CELL + CELL / 2
@@ -224,6 +240,8 @@ export default function Game({ onGameOver }) {
     })
 
     particlesRef.current = particlesRef.current.filter(p => p.life > 0)
+    ctx.shadowColor = t.particle
+    ctx.shadowBlur = 8
     particlesRef.current.forEach(p => {
       ctx.globalAlpha = p.life
       ctx.fillStyle = t.particle
@@ -232,6 +250,7 @@ export default function Game({ onGameOver }) {
       ctx.fill()
       p.x += p.vx; p.y += p.vy; p.life -= 0.06
     })
+    ctx.shadowBlur = 0
     ctx.globalAlpha = 1
   }, [])
 

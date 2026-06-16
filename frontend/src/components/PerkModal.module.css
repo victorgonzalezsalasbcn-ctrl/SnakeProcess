@@ -62,7 +62,7 @@
   transition: transform 0.15s, background 0.15s;
 }
 
-.option:hover { background: color-mix(in srgb, var(--accent, #5aab7e) 16%, var(--bg-subtle)); transform: translateY(-2px); }
+.option:hover { background: color-mix(in srgb, var(--accent, #ff7ad1) 16%, var(--bg-subtle)); transform: translateY(-2px); }
 .option:active { transform: scale(0.97); }
 
 .icon { font-size: 26px; }
