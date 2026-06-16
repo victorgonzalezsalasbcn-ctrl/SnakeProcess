@@ -10,6 +10,7 @@ function turtle(t) {
     [5, 7, 14, 1, '#2f7d4a'],
     [7, 6, 10, 1, '#2f7d4a'],
     [9, 5, 6, 1, '#2f7d4a'],
+    [5, 10, 14, 3, '#2f7d4a', '#1a4a2e'],
     [7, 9, 11, 3, '#4fae6a'],
     [9, 8, 7, 1, '#4fae6a'],
     [8, 9, 4, 2, '#7fd49a'],
@@ -27,6 +28,7 @@ function fox(t) {
   const tailUp = frame(t, 260) === 0
   const blocks = [
     [3, 11, 13, 8, '#f0883a'],
+    [3, 16, 13, 3, '#f0883a', '#c46a28'],
     [4, 13, 9, 5, '#fff3e0'],
     [3, 10, 13, 1, '#c46a28'],
     [13, 6, 9, 8, '#f0883a'],
@@ -48,6 +50,7 @@ function rabbit(t) {
   const earBack = frame(t, 150) === 0
   const blocks = [
     [3, 12, 14, 9, '#e8e4f0'],
+    [3, 17, 14, 3, '#e8e4f0', '#c9ccd6'],
     [3, 19, 14, 1, '#c9ccd6'],
     [13, 7, 9, 9, '#e8e4f0'],
     [20, 10, 4, 3, '#fff'],
@@ -116,6 +119,7 @@ function sandworm(t) {
   const f = frame(t, 200)
   return [
     [4, 16, 17, 5, '#c4915a'],
+    [4, 18, 17, 3, '#c4915a', '#8a5f33'],
     [4, 19, 17, 1, '#8a5f33'],
     [6, 13, 13, 4, '#d6a868'],
     [8, 10, 9, 4, '#d6a868'],
@@ -231,6 +235,100 @@ function portal(t) {
   ]
 }
 
+// ---------- run perks (permanent upgrades, picked every 10 apples) ----------
+
+function thickSkin() {
+  return [
+    [6, 4, 12, 8, '#9a9aa0'],
+    [6, 4, 12, 3, '#9a9aa0', '#b8b8be'],
+    [8, 12, 8, 6, '#84848a'],
+    [9, 18, 6, 3, '#6e6e76'],
+    [9, 7, 2, 2, '#3a3a40'],
+    [13, 7, 2, 2, '#3a3a40'],
+    [10, 14, 2, 2, '#3a3a40'],
+    [13, 15, 2, 2, '#3a3a40'],
+  ]
+}
+
+function shortTail() {
+  return [
+    [2, 9, 10, 6, '#3f9450'],
+    [2, 9, 10, 2, '#3f9450', '#2a6e38'],
+    [3, 10, 7, 1, '#5bc46f'],
+    [13, 11, 6, 2, '#c4c4cc'],
+    [17, 5, 2, 6, '#c4c4cc'],
+    [17, 13, 2, 6, '#c4c4cc'],
+    [16, 3, 3, 3, '#e8e8ee'],
+    [16, 16, 3, 3, '#e8e8ee'],
+    [19, 11, 3, 2, '#e8e8ee'],
+  ]
+}
+
+function reflexes() {
+  return [
+    [5, 5, 14, 10, '#c08fd6'],
+    [5, 5, 14, 4, '#c08fd6', '#a868c4'],
+    [7, 15, 10, 4, '#a868c4'],
+    [8, 7, 2, 2, '#7a3a94'],
+    [14, 7, 2, 2, '#7a3a94'],
+    [10, 11, 2, 2, '#7a3a94'],
+    [16, 11, 2, 2, '#7a3a94'],
+  ]
+}
+
+function voracious(t) {
+  const flick = frame(t, 200)
+  return [
+    [8, 14, 8, 8, '#c4364a'],
+    [8, 14, 8, 3, '#c4364a', '#9a1f30'],
+    [9, 21, 6, 1, '#7a1525'],
+    [10, flick === 0 ? 6 : 7, 4, 8, '#ff8a3a'],
+    [9, flick === 0 ? 9 : 10, 2, 4, '#ffce3a'],
+    [13, flick === 0 ? 9 : 10, 2, 4, '#ffce3a'],
+    [11, 4, 2, 3, '#ffe27a'],
+  ]
+}
+
+function lightStep() {
+  return [
+    [3, 19, 2, 2, 'rgba(189,251,255,0.9)'],
+    [6, 16, 2, 2, 'rgba(189,251,255,0.8)'],
+    [9, 13, 2, 2, '#bdfbff'],
+    [12, 10, 2, 2, '#bdfbff'],
+    [15, 7, 2, 2, '#fff'],
+    [18, 4, 2, 2, '#fff'],
+    [17, 2, 1, 1, '#fff'],
+    [20, 3, 1, 1, '#fff'],
+  ]
+}
+
+function enemySlower() {
+  return [
+    [4, 4, 16, 16, '#e0394a'],
+    [6, 6, 12, 12, '#fff'],
+    [9, 9, 6, 6, '#e0394a'],
+    [11, 11, 2, 2, '#fff'],
+    [10, 0, 4, 3, '#1a1325'],
+    [10, 21, 4, 3, '#1a1325'],
+    [0, 10, 3, 4, '#1a1325'],
+    [21, 10, 3, 4, '#1a1325'],
+  ]
+}
+
+function greed(t) {
+  const f = frame(t, 280)
+  return [
+    [4, 12, 9, 9, '#e0a82a'],
+    [4, 12, 9, 4, '#e0a82a', '#c98f1a'],
+    [7, 15, 3, 3, '#a8741a'],
+    [9, 8, 9, 9, '#ffce3a'],
+    [9, 8, 9, 4, '#ffce3a', '#e0a82a'],
+    [12, 11, 3, 3, '#c98f1a'],
+    f === 0 ? [3, 4, 2, 2, '#fff'] : [19, 6, 2, 2, '#fff'],
+    f === 0 ? [19, 6, 1, 1, '#fff'] : [3, 4, 1, 1, '#fff'],
+  ]
+}
+
 // ---------- scenery ----------
 
 function grass(t) {
@@ -247,6 +345,7 @@ function grass(t) {
 function cactus() {
   return [
     [9, 4, 6, 18, '#3f9450'],
+    [9, 14, 6, 8, '#3f9450', '#2a6e38'],
     [3, 10, 6, 6, '#3f9450'],
     [15, 7, 6, 6, '#3f9450'],
     [11, 5, 1, 16, '#2a6e38'],
@@ -260,6 +359,7 @@ function rock(t) {
   const f = frame(t, 600)
   return [
     [3, 12, 18, 9, '#8a8a96'],
+    [3, 17, 18, 4, '#8a8a96', '#6e6e78'],
     [6, 7, 12, 6, '#8a8a96'],
     f === 0 ? [7, 9, 5, 3, '#b0b0ba'] : [12, 14, 5, 3, '#b0b0ba'],
     [3, 20, 18, 1, '#6e6e78'],
@@ -330,6 +430,7 @@ const SPRITES = {
   turtle, fox, rabbit, ghost, bee, mound, sandworm,
   zap, shield, sparkles, magnet, snowflake, gem, purge, portal,
   grass, cactus, rock, ice, volcano, fire, star, galaxy, party,
+  thickSkin, shortTail, reflexes, voracious, lightStep, enemySlower, greed,
 }
 
 export const ENEMY_SPRITES = {
@@ -351,4 +452,35 @@ export function drawSpriteOutlined(ctx, name, cx, cy, size, time, outlineColor) 
   const fn = SPRITES[name]
   if (!fn) return
   drawBlocksOutlined(ctx, fn(time), cx, cy, size, outlineColor)
+}
+
+// Full-bleed parallax backdrop for the world banner: a soft sky tint over
+// the stage color, with 3 depth layers of the world's own scenery sprite
+// (small/faint/slow in back, big/opaque/lively up front).
+export function drawLayeredScene(ctx, w, h, time, bgColor, sceneryIcon) {
+  ctx.fillStyle = bgColor
+  ctx.fillRect(0, 0, w, h)
+  const sky = ctx.createLinearGradient(0, 0, 0, h)
+  sky.addColorStop(0, 'rgba(255,255,255,0.10)')
+  sky.addColorStop(1, 'rgba(0,0,0,0.18)')
+  ctx.fillStyle = sky
+  ctx.fillRect(0, 0, w, h)
+
+  const layers = [
+    { count: 5, scale: 0.55, yFrac: 0.4, alpha: 0.3, speed: 0.12 },
+    { count: 4, scale: 0.8, yFrac: 0.62, alpha: 0.55, speed: 0.22 },
+    { count: 3, scale: 1.15, yFrac: 0.88, alpha: 0.95, speed: 0.4 },
+  ]
+  layers.forEach((layer, li) => {
+    const spacing = w / layer.count
+    for (let i = 0; i < layer.count; i++) {
+      const sway = Math.sin(time / 1000 * layer.speed + i * 1.7 + li) * 3
+      const x = spacing * i + spacing / 2 + sway
+      const y = h * layer.yFrac
+      const size = h * layer.scale
+      ctx.globalAlpha = layer.alpha
+      drawSprite(ctx, sceneryIcon, x, y, size, time + i * 300 + li * 150)
+    }
+  })
+  ctx.globalAlpha = 1
 }

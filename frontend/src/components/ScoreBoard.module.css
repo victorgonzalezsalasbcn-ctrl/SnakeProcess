@@ -1,15 +1,9 @@
 .wrap {
   position: relative;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 18px;
   width: 100%;
+  min-height: 84px;
   padding: 14px 18px;
   border-radius: 0;
-  background: linear-gradient(160deg, var(--bg-surface), var(--bg-subtle));
   font-family: var(--font-pixel);
   overflow: hidden;
   isolation: isolate;
@@ -19,13 +13,30 @@
     0 0 0 3px var(--border);
 }
 
-.wrap::before {
-  content: '';
+.sceneCanvas {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%);
-  pointer-events: none;
-  z-index: -1;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.42));
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  width: 100%;
+  height: 100%;
 }
 
 .worldBadge {
@@ -33,12 +44,12 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: rgba(10, 8, 16, 0.4);
   font-size: 10px;
-  color: var(--accent);
+  color: #fff;
   animation: stageBadgeIn 0.4s ease;
   white-space: nowrap;
-  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.2), inset -2px -2px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.18), inset -2px -2px 0 rgba(0, 0, 0, 0.3);
 }
 
 @keyframes stageBadgeIn {
@@ -53,18 +64,19 @@
   flex-shrink: 0;
 }
 
-.stageName { line-height: 1; }
+.stageName { line-height: 1; text-shadow: 1px 1px 0 rgba(0,0,0,0.6); }
 
 .bestPill {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 9px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
   white-space: nowrap;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
 }
 
-.bestValue { color: var(--text); }
+.bestValue { color: #fff; }
 
 .scoreBlock {
   display: flex;
@@ -75,8 +87,9 @@
 .score {
   font-size: 24px;
   line-height: 1;
-  color: var(--text);
+  color: #fff;
   font-family: var(--font-pixel);
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.55);
   transition: transform 0.15s;
 }
 
@@ -85,10 +98,11 @@
 .delta {
   font-size: 10px;
   font-family: var(--font-pixel);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
 }
 
 .deltaUp { color: #4ade80; }
-.deltaDown { color: var(--text-muted); }
+.deltaDown { color: rgba(255, 255, 255, 0.6); }
 
 .statusCol {
   display: flex;
@@ -108,11 +122,13 @@
 .streak {
   font-size: 9px;
   color: #fb923c;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
 }
 
 .shield {
   font-size: 9px;
   color: #7ed4e0;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
 }
 
 .effects {

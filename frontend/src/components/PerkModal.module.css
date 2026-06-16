@@ -65,7 +65,7 @@
 .option:hover { background: color-mix(in srgb, var(--accent, #ff7ad1) 16%, var(--bg-subtle)); transform: translateY(-2px); }
 .option:active { transform: scale(0.97); }
 
-.icon { font-size: 26px; }
+.icon { width: 32px; height: 32px; image-rendering: pixelated; }
 
 .name {
   font-weight: 700;

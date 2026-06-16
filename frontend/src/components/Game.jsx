@@ -8,7 +8,7 @@ import { ENEMY_TYPES, spawnEnemyOfType } from '../game/enemies'
 import { POWERUP_TYPES, pickRandomPowerupType, stepToward, GEM_BONUS_SCORE, PORTAL } from '../game/powerups'
 import { pickRandomPerks } from '../game/perks'
 import { drawSprite, drawSpriteOutlined, ENEMY_SPRITES, POWERUP_SPRITES } from '../game/sprites'
-import { buildTilePattern } from '../game/pixel'
+import { buildTilePattern, drawContactShadow, fillDithered } from '../game/pixel'
 
 const CELL = 18, COLS = 20, ROWS = 20
 const W = COLS * CELL, H = ROWS * CELL
@@ -43,14 +43,46 @@ function spawnDecorParticle(stageIdx) {
   }
 }
 
+function hexToRgb(hex) {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const n = parseInt(full, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+// Cracked cobblestone/cell texture (Voronoi-ish): scatter a few seed points
+// and paint pixels near a cell border in the crack color. Cheap enough to
+// run once per tile build since the result is cached as a CanvasPattern.
+function paintCrackedCells(ctx, size, baseHex, crackHex, cellCount = 8) {
+  const base = hexToRgb(baseHex)
+  const crack = hexToRgb(crackHex)
+  const pts = Array.from({ length: cellCount }, () => [Math.random() * size, Math.random() * size])
+  const img = ctx.createImageData(size, size)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let d1 = Infinity, d2 = Infinity
+      for (const [px, py] of pts) {
+        const d = (x - px) ** 2 + (y - py) ** 2
+        if (d < d1) { d2 = d1; d1 = d } else if (d < d2) d2 = d
+      }
+      const isCrack = Math.sqrt(d2) - Math.sqrt(d1) < 1.4
+      const c = isCrack ? crack : base
+      const idx = (y * size + x) * 4
+      img.data[idx] = c[0]; img.data[idx + 1] = c[1]; img.data[idx + 2] = c[2]; img.data[idx + 3] = 255
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
 function paintGroundTile(ctx, size, bg, type, variant) {
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, size, size)
+  const crackColors = { grass: '#163a24', sand: '#c8a868', ice: '#8cc8eb', rock: '#3a2424' }
+  if (crackColors[type]) paintCrackedCells(ctx, size, bg, crackColors[type], 9)
+  else { ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size) }
   const u = size / 32
   const speck = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x * u, y * u, w * u, h * u) }
+  const dither = (x, y, w, h, colorA, colorB) => fillDithered(ctx, x * u, y * u, w * u, h * u, colorA, colorB)
   switch (type) {
     case 'grass':
-      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')
       speck(4, 6, 3, 3, variant === 0 ? '#173d27' : '#1a4a2e')
       speck(20, 14, 3, 3, variant === 0 ? '#1a4a2e' : '#173d27')
       speck(12, 24, 3, 3, variant === 0 ? '#173d27' : '#1a4a2e')
@@ -61,7 +93,6 @@ function paintGroundTile(ctx, size, bg, type, variant) {
       speck(9, 14, 1, 3, '#2a6e3f')
       break
     case 'sand':
-      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')
       speck(6, 8, 4, 2, variant === 0 ? '#f0d090' : '#e0c080')
       speck(22, 20, 4, 2, variant === 0 ? '#e0c080' : '#f0d090')
       speck(14, 28, 3, 2, '#d8b878')
@@ -70,7 +101,6 @@ function paintGroundTile(ctx, size, bg, type, variant) {
       speck(28, 14, 2, 2, '#fae0a8')
       break
     case 'ice':
-      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)')
       speck(8, 10, 2, 2, variant === 0 ? '#fff' : 'rgba(255,255,255,0.4)')
       speck(24, 22, 2, 2, variant === 1 ? '#fff' : 'rgba(255,255,255,0.4)')
       speck(16, 6, 6, 1, 'rgba(255,255,255,0.25)')
@@ -79,7 +109,6 @@ function paintGroundTile(ctx, size, bg, type, variant) {
       speck(28, 4, 2, 2, '#cdf3ff')
       break
     case 'rock':
-      speck(0, 0, 32, 32, variant === 0 ? 'rgba(255,120,40,0.03)' : 'rgba(0,0,0,0.04)')
       speck(10, 10, 3, 3, variant === 0 ? '#ff7a3a' : '#b8431a')
       speck(26, 24, 3, 3, variant === 1 ? '#ff7a3a' : '#b8431a')
       speck(2, 20, 6, 1, '#3a2424')
@@ -87,6 +116,7 @@ function paintGroundTile(ctx, size, bg, type, variant) {
       speck(6, 28, 2, 2, '#ff9a5a')
       break
     case 'space':
+      dither(0, 0, 32, 32, 'rgba(199,155,255,0.04)', 'rgba(0,0,0,0)')
       speck(6, 8, 2, 2, variant === 0 ? '#fff' : 'rgba(255,255,255,0.3)')
       speck(26, 6, 2, 2, variant === 1 ? '#fff' : 'rgba(255,255,255,0.3)')
       speck(16, 26, 2, 2, variant === 0 ? '#c79bff' : 'rgba(199,155,255,0.3)')
@@ -96,6 +126,7 @@ function paintGroundTile(ctx, size, bg, type, variant) {
       speck(22, 30, 1, 1, '#ff9ec2')
       break
     case 'confetti':
+      dither(0, 0, 32, 32, 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.0)')
       speck(6, 6, 3, 3, variant === 0 ? '#ff5da0' : '#ffd23a')
       speck(24, 12, 3, 3, variant === 0 ? '#5dffb0' : '#8fe4ff')
       speck(12, 26, 3, 3, variant === 0 ? '#8fe4ff' : '#ff5da0')
@@ -266,6 +297,7 @@ function buildHud(s) {
       name: inDimension ? DIMENSION_THEME.name : stage.name,
       icon: inDimension ? DIMENSION_THEME.icon : stage.icon,
       accent: theme.accent,
+      bg: theme.bg,
       index: stage.index,
     },
     shield: s.shield,
@@ -378,6 +410,7 @@ export default function Game({ onGameOver }) {
       const py = i === 0 ? interpHead.y : seg.y
       const segColor = i === 0 ? t.snakeHead : ratio < 0.5 ? t.snakeBodyA : t.snakeBodyB
       const bx = px * CELL, by = py * CELL
+      if (i === 0) drawContactShadow(ctx, bx + CELL / 2, by + CELL * 0.85, CELL * 0.9, CELL * 0.35, 0.3)
       ctx.globalAlpha = Math.max(0.4, 1 - ratio * 0.5)
       ctx.shadowColor = segColor
       ctx.shadowBlur = i === 0 ? 14 : 7
@@ -488,6 +521,9 @@ export default function Game({ onGameOver }) {
       const baseAlpha = !isSandworm && en.intangible ? 0.35 : 1
       const outlineColor = frozen ? '#bcdfff' : '#0a0612'
 
+      if (!(isSandworm && spriteName === 'mound')) {
+        drawContactShadow(ctx, ex, ey + CELL * 0.38, CELL * 0.8, CELL * 0.3, 0.28 * baseAlpha)
+      }
       ctx.globalAlpha = baseAlpha
       drawSpriteOutlined(ctx, spriteName, ex, ey, CELL * 1.1, now + en.x * 137, outlineColor)
       ctx.globalAlpha = 1

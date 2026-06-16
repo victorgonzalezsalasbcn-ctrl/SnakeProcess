@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { drawSprite } from '../game/sprites'
+import { drawLayeredScene } from '../game/sprites'
+import PixelIcon from './PixelIcon'
 import styles from './ScoreBoard.module.css'
 
 const WORLD_SPRITE = {
@@ -12,7 +13,7 @@ const WORLD_SPRITE = {
   Dimensión: 'portal',
 }
 
-function PixelWorldIcon({ name, size = 28 }) {
+function SceneBackground({ icon, bg }) {
   const canvasRef = useRef(null)
   const rafRef = useRef(null)
 
@@ -20,15 +21,14 @@ function PixelWorldIcon({ name, size = 28 }) {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const loop = () => {
-      ctx.clearRect(0, 0, size, size)
-      drawSprite(ctx, name, size / 2, size / 2, size, Date.now())
+      drawLayeredScene(ctx, canvas.width, canvas.height, Date.now(), bg, icon)
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [name, size])
+  }, [icon, bg])
 
-  return <canvas ref={canvasRef} width={size} height={size} className={styles.worldIconCanvas} />
+  return <canvas ref={canvasRef} width={640} height={120} className={styles.sceneCanvas} />
 }
 
 function useTweenedNumber(target, durationMs = 350) {
@@ -101,39 +101,43 @@ export default function ScoreBoard({ hud }) {
 
   return (
     <div className={styles.wrap} style={{ '--accent': stage.accent }}>
-      <div key={stageFlashKey} className={styles.worldBadge}>
-        <PixelWorldIcon name={WORLD_SPRITE[stage.name] || 'star'} />
-        <span className={styles.stageName}>{stage.name}</span>
-      </div>
-
-      <div className={styles.scoreBlock}>
-        <span className={`${styles.score} ${bump ? styles.scoreBump : ''}`}>{displayScore}</span>
-        {score > 0 && (
-          <span className={`${styles.delta} ${delta >= 0 ? styles.deltaUp : styles.deltaDown}`}>
-            {delta >= 0 ? `+${delta}` : delta}
-          </span>
-        )}
-      </div>
-
-      <div className={styles.bestPill}>
-        <span className={styles.bestLabel}>Mejor</span>
-        <span className={styles.bestValue}>{best}</span>
-      </div>
-
-      <div className={styles.statusCol}>
-        <div className={styles.statusRow}>
-          {streak >= 3 && <span className={styles.streak}>🔥 Racha x{streak}</span>}
-          {shield && <span className={styles.shield}>🛡️ Escudo activo</span>}
+      <SceneBackground icon={WORLD_SPRITE[stage.name] || 'star'} bg={stage.bg} />
+      <div className={styles.scrim} />
+      <div className={styles.content}>
+        <div key={stageFlashKey} className={styles.worldBadge}>
+          <PixelIcon name={WORLD_SPRITE[stage.name] || 'star'} className={styles.worldIconCanvas} />
+          <span className={styles.stageName}>{stage.name}</span>
         </div>
-        {activeEffects.length > 0 && (
-          <div className={styles.effects}>
-            {activeEffects.map(e => <EffectBadge key={e.id} effect={e} now={now} />)}
+
+        <div className={styles.scoreBlock}>
+          <span className={`${styles.score} ${bump ? styles.scoreBump : ''}`}>{displayScore}</span>
+          {score > 0 && (
+            <span className={`${styles.delta} ${delta >= 0 ? styles.deltaUp : styles.deltaDown}`}>
+              {delta >= 0 ? `+${delta}` : delta}
+            </span>
+          )}
+        </div>
+
+        <div className={styles.bestPill}>
+          <span className={styles.bestLabel}>Mejor</span>
+          <span className={styles.bestValue}>{best}</span>
+        </div>
+
+        <div className={styles.statusCol}>
+          <div className={styles.statusRow}>
+            {streak >= 3 && <span className={styles.streak}>🔥 Racha x{streak}</span>}
+            {shield && <span className={styles.shield}>🛡️ Escudo activo</span>}
           </div>
-        )}
+          {activeEffects.length > 0 && (
+            <div className={styles.effects}>
+              {activeEffects.map(e => <EffectBadge key={e.id} effect={e} now={now} />)}
+            </div>
+          )}
+        </div>
       </div>
 
       <div key={`flash-${stageFlashKey}`} className={styles.stageFlash}>
-        <PixelWorldIcon name={WORLD_SPRITE[stage.name] || 'star'} size={36} />
+        <PixelIcon name={WORLD_SPRITE[stage.name] || 'star'} size={36} />
         <span>{stage.name}</span>
       </div>
     </div>

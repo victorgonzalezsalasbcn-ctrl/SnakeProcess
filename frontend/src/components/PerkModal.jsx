@@ -1,3 +1,4 @@
+import PixelIcon from './PixelIcon'
 import styles from './PerkModal.module.css'
 
 export default function PerkModal({ stage, perks, onPick }) {
@@ -13,7 +14,7 @@ export default function PerkModal({ stage, perks, onPick }) {
               className={styles.option}
               onClick={() => onPick(perk)}
             >
-              <span className={styles.icon}>{perk.icon}</span>
+              <PixelIcon name={perk.id} size={32} className={styles.icon} />
               <span className={styles.name}>{perk.name}</span>
               <span className={styles.desc}>{perk.desc}</span>
             </button>
