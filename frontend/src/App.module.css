@@ -12,9 +12,34 @@
 }
 
 .title {
-  font-size: 22px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  line-height: 1;
   color: var(--text);
+}
+
+.logoIcon {
+  display: flex;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent));
+}
+
+.logoText {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.logoStrong {
+  color: var(--text);
+}
+
+.logoLight {
+  font-size: 0.85em;
+  color: var(--text-muted);
 }
 
 .themeBtn {

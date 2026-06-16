@@ -6,6 +6,8 @@ export const STAGES = [
     icon: '🌲',
     enemyType: 'wanderer',
     speedMs: 220,
+    scenery: [{ icon: 'grass', count: 14 }],
+    groundTile: 'grass',
     theme: {
       bg: '#0d1a17', grid: 'rgba(255,255,255,0.05)',
       snakeHead: '#9dffd6', snakeBodyA: '#6df0c0', snakeBodyB: '#45c9a0',
@@ -20,6 +22,8 @@ export const STAGES = [
     icon: '🏜️',
     enemyType: 'hunter',
     speedMs: 195,
+    scenery: [{ icon: 'cactus', count: 7 }, { icon: 'rock', count: 5 }],
+    groundTile: 'sand',
     theme: {
       bg: '#1f160d', grid: 'rgba(255,255,255,0.05)',
       snakeHead: '#ffe39d', snakeBodyA: '#ffcf6d', snakeBodyB: '#f0a94a',
@@ -34,6 +38,8 @@ export const STAGES = [
     icon: '❄️',
     enemyType: 'sprinter',
     speedMs: 170,
+    scenery: [{ icon: 'ice', count: 6 }, { icon: 'snowflake', count: 8 }],
+    groundTile: 'ice',
     theme: {
       bg: '#0d1a1f', grid: 'rgba(255,255,255,0.07)',
       snakeHead: '#bdfbff', snakeBodyA: '#8fe4ff', snakeBodyB: '#5cb8e0',
@@ -48,6 +54,8 @@ export const STAGES = [
     icon: '🌋',
     enemyType: 'phantom',
     speedMs: 150,
+    scenery: [{ icon: 'volcano', count: 4 }, { icon: 'rock', count: 6 }, { icon: 'fire', count: 5 }],
+    groundTile: 'rock',
     theme: {
       bg: '#1f0d17', grid: 'rgba(255,255,255,0.05)',
       snakeHead: '#ffb3d9', snakeBodyA: '#ff7ab8', snakeBodyB: '#e0489a',
@@ -62,6 +70,8 @@ export const STAGES = [
     icon: '🌌',
     enemyType: 'swarm',
     speedMs: 135,
+    scenery: [{ icon: 'star', count: 10 }, { icon: 'galaxy', count: 3 }],
+    groundTile: 'space',
     theme: {
       bg: '#130d1f', grid: 'rgba(255,255,255,0.07)',
       snakeHead: '#e0c3ff', snakeBodyA: '#c79bff', snakeBodyB: '#9a6bd6',
@@ -76,6 +86,8 @@ export const STAGES = [
     icon: '🌀',
     enemyType: 'swarm',
     speedMs: 115,
+    scenery: [{ icon: 'party', count: 8 }, { icon: 'star', count: 6 }],
+    groundTile: 'confetti',
     theme: {
       bg: '#1f0d1a', grid: 'rgba(255,255,255,0.08)',
       snakeHead: '#ff9ee8', snakeBodyA: '#ff6fd6', snakeBodyB: '#d63fb0',
@@ -86,6 +98,16 @@ export const STAGES = [
     },
   },
 ]
+
+export const DIMENSION_THEME = {
+  name: 'Dimensión', icon: '🌀',
+  bg: '#0a0518', grid: 'rgba(255,255,255,0.1)',
+  snakeHead: '#ffffff', snakeBodyA: '#e0c3ff', snakeBodyB: '#b18aff',
+  food: '#fff27a', foodStem: '#e0c3ff',
+  enemy: '#ff9ec2', enemyBorder: '#ff5fa0', enemyEye: '#fff',
+  particle: '#ffffff', accent: '#e0c3ff',
+  overlayBg: 'rgba(10,5,24,0.93)', overlayText: '#f4e6ff', overlayMuted: '#c0a0e0',
+}
 
 export function getStageIndex(score) {
   return Math.floor(score / APPLES_PER_STAGE)

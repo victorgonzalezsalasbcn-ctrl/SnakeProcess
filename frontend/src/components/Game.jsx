@@ -3,10 +3,12 @@ import styles from './Game.module.css'
 import ScoreBoard from './ScoreBoard'
 import PerkModal from './PerkModal'
 import VirtualJoystick, { clampToRadius, getDirectionFromDelta } from './VirtualJoystick'
-import { getStage, getStageIndex } from '../game/stages'
+import { getStage, getStageIndex, DIMENSION_THEME } from '../game/stages'
 import { ENEMY_TYPES, spawnEnemyOfType } from '../game/enemies'
-import { POWERUP_TYPES, pickRandomPowerupType, stepToward, GEM_BONUS_SCORE } from '../game/powerups'
+import { POWERUP_TYPES, pickRandomPowerupType, stepToward, GEM_BONUS_SCORE, PORTAL } from '../game/powerups'
 import { pickRandomPerks } from '../game/perks'
+import { drawSprite, ENEMY_SPRITES, POWERUP_SPRITES } from '../game/sprites'
+import { buildTilePattern } from '../game/pixel'
 
 const CELL = 18, COLS = 20, ROWS = 20
 const W = COLS * CELL, H = ROWS * CELL
@@ -14,7 +16,162 @@ const MAX_ENEMIES_CAP = 12
 const PICKUP_LIFETIME = 8000
 const BEST_KEY = 'snake_best'
 
+const DECOR_BY_STAGE = [
+  { shape: 'leaf', count: 14, vy: [0.3, 0.8], vx: [-0.3, 0.3] },
+  { shape: 'dust', count: 16, vy: [-0.05, 0.05], vx: [0.4, 0.9] },
+  { shape: 'snow', count: 18, vy: [0.25, 0.6], vx: [-0.15, 0.15] },
+  { shape: 'ember', count: 14, vy: [-0.6, -0.25], vx: [-0.15, 0.15] },
+  { shape: 'star', count: 16, vy: [0, 0], vx: [0, 0] },
+  { shape: 'confetti', count: 16, vy: [0.3, 0.7], vx: [-0.25, 0.25] },
+]
+
 function rand(n) { return Math.floor(Math.random() * n) }
+function randRange([min, max]) { return min + Math.random() * (max - min) }
+
+function spawnDecorParticle(stageIdx) {
+  const def = DECOR_BY_STAGE[stageIdx % DECOR_BY_STAGE.length]
+  return {
+    shape: def.shape,
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: randRange(def.vx),
+    vy: randRange(def.vy),
+    size: 2 + Math.random() * 3,
+    angle: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.06,
+    twinklePhase: Math.random() * Math.PI * 2,
+  }
+}
+
+function paintGroundTile(ctx, size, bg, type, variant) {
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, size, size)
+  const speck = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h) }
+  switch (type) {
+    case 'grass':
+      speck(4, 6, 3, 3, variant === 0 ? '#173d27' : '#1a4a2e')
+      speck(20, 14, 3, 3, variant === 0 ? '#1a4a2e' : '#173d27')
+      speck(12, 24, 3, 3, variant === 0 ? '#173d27' : '#1a4a2e')
+      speck(28, 28, 3, 3, '#163a24')
+      break
+    case 'sand':
+      speck(6, 8, 4, 2, variant === 0 ? '#f0d090' : '#e0c080')
+      speck(22, 20, 4, 2, variant === 0 ? '#e0c080' : '#f0d090')
+      speck(14, 28, 3, 2, '#d8b878')
+      break
+    case 'ice':
+      speck(8, 10, 2, 2, variant === 0 ? '#fff' : 'rgba(255,255,255,0.4)')
+      speck(24, 22, 2, 2, variant === 1 ? '#fff' : 'rgba(255,255,255,0.4)')
+      speck(16, 6, 6, 1, 'rgba(255,255,255,0.25)')
+      break
+    case 'rock':
+      speck(10, 10, 3, 3, variant === 0 ? '#ff7a3a' : '#b8431a')
+      speck(26, 24, 3, 3, variant === 1 ? '#ff7a3a' : '#b8431a')
+      break
+    case 'space':
+      speck(6, 8, 2, 2, variant === 0 ? '#fff' : 'rgba(255,255,255,0.3)')
+      speck(26, 6, 2, 2, variant === 1 ? '#fff' : 'rgba(255,255,255,0.3)')
+      speck(16, 26, 2, 2, variant === 0 ? '#c79bff' : 'rgba(199,155,255,0.3)')
+      break
+    case 'confetti':
+      speck(6, 6, 3, 3, variant === 0 ? '#ff5da0' : '#ffd23a')
+      speck(24, 12, 3, 3, variant === 0 ? '#5dffb0' : '#8fe4ff')
+      speck(12, 26, 3, 3, variant === 0 ? '#8fe4ff' : '#ff5da0')
+      break
+    default:
+      break
+  }
+}
+
+function drawDecor(ctx, particles, theme, now) {
+  ctx.save()
+  particles.forEach(p => {
+    if (p.shape !== 'star') {
+      p.x += p.vx
+      p.y += p.vy
+      p.angle += p.spin
+      if (p.x < -5) p.x = W + 5
+      if (p.x > W + 5) p.x = -5
+      if (p.y < -5) p.y = H + 5
+      if (p.y > H + 5) p.y = -5
+    }
+
+    if (p.shape === 'star') {
+      const tw = 0.4 + Math.sin(now / 500 + p.twinklePhase) * 0.35
+      ctx.globalAlpha = Math.max(0.1, tw)
+      ctx.fillStyle = theme.particle
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2)
+      ctx.fill()
+    } else if (p.shape === 'leaf') {
+      ctx.globalAlpha = 0.4
+      ctx.fillStyle = theme.particle
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.angle)
+      ctx.beginPath()
+      ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    } else if (p.shape === 'dust') {
+      ctx.globalAlpha = 0.25
+      ctx.fillStyle = theme.particle
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2)
+      ctx.fill()
+    } else if (p.shape === 'snow') {
+      ctx.globalAlpha = 0.5
+      ctx.fillStyle = theme.particle
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2)
+      ctx.fill()
+    } else if (p.shape === 'ember') {
+      ctx.globalAlpha = 0.55
+      ctx.fillStyle = theme.particle
+      ctx.shadowColor = theme.particle
+      ctx.shadowBlur = 6
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * 0.45, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    } else if (p.shape === 'confetti') {
+      ctx.globalAlpha = 0.45
+      ctx.fillStyle = theme.particle
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.angle)
+      ctx.fillRect(-p.size * 0.5, -p.size * 0.3, p.size, p.size * 0.6)
+      ctx.restore()
+    }
+  })
+  ctx.restore()
+}
+
+function spawnScenery(stageData) {
+  const items = []
+  stageData.scenery.forEach(({ icon, count }) => {
+    for (let i = 0; i < count; i++) {
+      let x, y, tries = 0
+      do { x = rand(COLS); y = rand(ROWS); tries++ }
+      while (tries < 20 && Math.abs(x - 10) < 3 && Math.abs(y - 10) < 3)
+      items.push({ icon, x, y, scale: 1.4 + Math.random() * 0.6, phase: Math.random() * 4000 })
+    }
+  })
+  return items
+}
+
+function drawScenery(ctx, items, now) {
+  ctx.globalAlpha = 0.8
+  items.forEach(it => {
+    drawSprite(ctx, it.icon, it.x * CELL + CELL / 2, it.y * CELL + CELL / 2, CELL * it.scale, now + it.phase)
+  })
+  ctx.globalAlpha = 1
+}
+
+function getActiveTheme(s) {
+  if (s.portalExpiresAt && s.portalExpiresAt > Date.now()) return DIMENSION_THEME
+  return getStage(s.score).theme
+}
 
 function randomFreeCell(blocked) {
   let pos
@@ -23,14 +180,23 @@ function randomFreeCell(blocked) {
   return pos
 }
 
-function placeFood(snake, enemies, pickup) {
-  const blocked = pickup ? [...snake, ...enemies, pickup] : [...snake, ...enemies]
+function placeFood(snake, enemies, pickup, portal) {
+  const blocked = [...snake, ...enemies]
+  if (pickup) blocked.push(pickup)
+  if (portal) blocked.push(portal)
   return randomFreeCell(blocked)
 }
 
-function spawnPickup(snake, enemies, food) {
-  const pos = randomFreeCell([...snake, ...enemies, food])
+function spawnPickup(snake, enemies, food, portal) {
+  const blocked = portal ? [...snake, ...enemies, food, portal] : [...snake, ...enemies, food]
+  const pos = randomFreeCell(blocked)
   return { ...pos, type: pickRandomPowerupType(), expiresAt: Date.now() + PICKUP_LIFETIME }
+}
+
+function spawnPortal(snake, enemies, food, pickup) {
+  const blocked = pickup ? [...snake, ...enemies, food, pickup] : [...snake, ...enemies, food]
+  const pos = randomFreeCell(blocked)
+  return { ...pos, expiresAt: Date.now() + PORTAL.lifetime }
 }
 
 function queueDirection(s, d) {
@@ -50,6 +216,13 @@ function addOrRefreshEffect(s, typeKey) {
   else s.activeEffects.push({ id: `${typeKey}-${now}`, type: typeKey, icon: def.icon, label: def.label, color: def.color, duration: def.duration, expiresAt: now + def.duration })
 }
 
+function addEffectUntil(s, typeKey, expiresAt) {
+  const def = POWERUP_TYPES[typeKey]
+  const existing = s.activeEffects.find(e => e.type === typeKey)
+  if (existing) existing.expiresAt = expiresAt
+  else s.activeEffects.push({ id: `${typeKey}-${Date.now()}`, type: typeKey, icon: def.icon, label: def.label, color: def.color, duration: PORTAL.duration, expiresAt })
+}
+
 function computeStepDuration(s) {
   const stage = getStage(s.score)
   let dur = stage.speedMs + (s.run.speedModMs || 0)
@@ -59,10 +232,17 @@ function computeStepDuration(s) {
 
 function buildHud(s) {
   const stage = getStage(s.score)
+  const inDimension = s.portalExpiresAt && s.portalExpiresAt > Date.now()
+  const theme = inDimension ? DIMENSION_THEME : stage.theme
   return {
     score: s.score,
     best: s.best,
-    stage: { name: stage.name, icon: stage.icon, accent: stage.theme.accent, index: stage.index },
+    stage: {
+      name: inDimension ? DIMENSION_THEME.name : stage.name,
+      icon: inDimension ? DIMENSION_THEME.icon : stage.icon,
+      accent: theme.accent,
+      index: stage.index,
+    },
     shield: s.shield,
     streak: s.run.streak || 0,
     activeEffects: s.activeEffects.map(e => ({ ...e })),
@@ -83,6 +263,12 @@ export default function Game({ onGameOver }) {
   const stateRef = useRef(null)
   const touchRef = useRef(null)
   const particlesRef = useRef([])
+  const decorRef = useRef([])
+  const decorStageRef = useRef(-1)
+  const sceneryRef = useRef([])
+  const sceneryStageRef = useRef(-1)
+  const groundPatternsRef = useRef(null)
+  const groundStageRef = useRef(-1)
   const rafRef = useRef(null)
   const tickRef = useRef(0)
 
@@ -108,11 +294,27 @@ export default function Game({ onGameOver }) {
     const ctx = canvas.getContext('2d')
     const s = stateRef.current
     if (!s) return
-    const t = getStage(s.score).theme
+    const inDimension = s.portalExpiresAt && s.portalExpiresAt > Date.now()
+    const t = getActiveTheme(s)
     const now = Date.now()
 
     ctx.clearRect(0, 0, W, H)
-    ctx.fillStyle = t.bg
+    const stageIdx = getStageIndex(s.score)
+    if (!inDimension) {
+      const stageData = getStage(s.score)
+      if (groundStageRef.current !== stageIdx || !groundPatternsRef.current) {
+        groundStageRef.current = stageIdx
+        const tileSize = CELL * 2
+        groundPatternsRef.current = {
+          a: buildTilePattern(ctx, tctx => paintGroundTile(tctx, tileSize, t.bg, stageData.groundTile, 0), tileSize),
+          b: buildTilePattern(ctx, tctx => paintGroundTile(tctx, tileSize, t.bg, stageData.groundTile, 1), tileSize),
+        }
+      }
+      const variant = Math.floor(now / 300) % 2
+      ctx.fillStyle = variant === 0 ? groundPatternsRef.current.a : groundPatternsRef.current.b
+    } else {
+      ctx.fillStyle = t.bg
+    }
     ctx.fillRect(0, 0, W, H)
 
     ctx.strokeStyle = t.grid
@@ -122,6 +324,21 @@ export default function Game({ onGameOver }) {
     }
     for (let j = 0; j <= ROWS; j++) {
       ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(W, j * CELL); ctx.stroke()
+    }
+
+    if (!inDimension) {
+      if (sceneryStageRef.current !== stageIdx) {
+        sceneryStageRef.current = stageIdx
+        sceneryRef.current = spawnScenery(getStage(s.score))
+      }
+      drawScenery(ctx, sceneryRef.current, now)
+
+      if (decorStageRef.current !== stageIdx) {
+        decorStageRef.current = stageIdx
+        const def = DECOR_BY_STAGE[stageIdx % DECOR_BY_STAGE.length]
+        decorRef.current = Array.from({ length: def.count }, () => spawnDecorParticle(stageIdx))
+      }
+      drawDecor(ctx, decorRef.current, t, now)
     }
 
     const frac = s.paused || s.awaitingPerk ? 1 : Math.min(1, (now - s.lastStepTime) / s.stepDuration)
@@ -135,14 +352,17 @@ export default function Game({ onGameOver }) {
       const px = i === 0 ? interpHead.x : seg.x
       const py = i === 0 ? interpHead.y : seg.y
       const segColor = i === 0 ? t.snakeHead : ratio < 0.5 ? t.snakeBodyA : t.snakeBodyB
-      ctx.fillStyle = segColor
-      ctx.globalAlpha = Math.max(0.3, 1 - ratio * 0.6)
+      const bx = px * CELL, by = py * CELL
+      ctx.globalAlpha = Math.max(0.4, 1 - ratio * 0.5)
       ctx.shadowColor = segColor
       ctx.shadowBlur = i === 0 ? 14 : 7
-      ctx.beginPath()
-      ctx.roundRect(px * CELL + 1, py * CELL + 1, CELL - 2, CELL - 2, i === 0 ? 6 : 3)
-      ctx.fill()
+      ctx.fillStyle = '#1a1325'
+      ctx.fillRect(bx, by, CELL, CELL)
       ctx.shadowBlur = 0
+      ctx.fillStyle = segColor
+      ctx.fillRect(bx + 2, by + 2, CELL - 4, CELL - 4)
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      ctx.fillRect(bx + 2, by + 2, CELL - 4, 2)
       ctx.globalAlpha = 1
 
       if (i === 0) {
@@ -152,30 +372,36 @@ export default function Game({ onGameOver }) {
           ctx.shadowBlur = 10
           ctx.lineWidth = 2
           ctx.beginPath()
-          ctx.arc(px * CELL + CELL / 2, py * CELL + CELL / 2, CELL * 0.8, 0, Math.PI * 2)
+          ctx.arc(bx + CELL / 2, by + CELL / 2, CELL * 0.8, 0, Math.PI * 2)
           ctx.stroke()
           ctx.shadowBlur = 0
         }
         const { dir } = s
-        const hx = px * CELL + CELL / 2
-        const hy = py * CELL + CELL / 2
         const eyeOff = dir.y === 0
-          ? [{ dx: 0, dy: -2.5 }, { dx: 0, dy: 2.5 }]
-          : [{ dx: -2.5, dy: 0 }, { dx: 2.5, dy: 0 }]
-        ctx.fillStyle = '#fff'
+          ? [{ dx: 4, dy: -4 }, { dx: 4, dy: 2 }]
+          : [{ dx: -4, dy: 4 }, { dx: 2, dy: 4 }]
+        ctx.fillStyle = '#1a1325'
         eyeOff.forEach(e => {
-          ctx.beginPath()
-          ctx.arc(hx + dir.x * 3 + e.dx, hy + dir.y * 3 + e.dy, 2, 0, Math.PI * 2)
-          ctx.fill()
-        })
-        ctx.fillStyle = '#222'
-        eyeOff.forEach(e => {
-          ctx.beginPath()
-          ctx.arc(hx + dir.x * 3.5 + e.dx * 0.6, hy + dir.y * 3.5 + e.dy * 0.6, 1, 0, Math.PI * 2)
-          ctx.fill()
+          ctx.fillRect(bx + CELL / 2 + dir.x * 2 + e.dx - 1, by + CELL / 2 + dir.y * 2 + e.dy - 1, 2, 2)
         })
       }
     })
+
+    if (s.activeEffects.length) {
+      const badgeEffect = s.activeEffects[0]
+      const bob = Math.sin(now / 280) * 2
+      const bx = interpHead.x * CELL + CELL / 2
+      const by = interpHead.y * CELL - CELL * 0.55 + bob
+      const br = CELL * 0.42
+      ctx.fillStyle = badgeEffect.color
+      ctx.shadowColor = badgeEffect.color
+      ctx.shadowBlur = 12
+      ctx.beginPath()
+      ctx.arc(bx, by, br, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+      drawSprite(ctx, POWERUP_SPRITES[badgeEffect.type], bx, by, br * 1.4, now)
+    }
 
     const pulse = 0.8 + Math.sin(now / 300) * 0.15
     const fr = (CELL / 2 - 2) * pulse
@@ -203,10 +429,26 @@ export default function Game({ onGameOver }) {
         ctx.fill()
         ctx.shadowBlur = 0
         ctx.globalAlpha = 1
-        ctx.font = `${CELL - 6}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(def.icon, s.pickup.x * CELL + CELL / 2, s.pickup.y * CELL + CELL / 2 + 1)
+        const icx = s.pickup.x * CELL + CELL / 2
+        const icy = s.pickup.y * CELL + CELL / 2
+        drawSprite(ctx, POWERUP_SPRITES[s.pickup.type], icx, icy, CELL * 0.8, now)
+      }
+    }
+
+    if (s.portal) {
+      const timeLeft = s.portal.expiresAt - now
+      const blink = timeLeft < 3000 ? (Math.sin(now / 90) > 0) : true
+      if (blink) {
+        const pcx = s.portal.x * CELL + CELL / 2
+        const pcy = s.portal.y * CELL + CELL / 2
+        ctx.shadowColor = '#c79bff'
+        ctx.shadowBlur = 18
+        ctx.fillStyle = 'rgba(199,155,255,0.35)'
+        ctx.beginPath()
+        ctx.arc(pcx, pcy, CELL * 0.55, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        drawSprite(ctx, 'portal', pcx, pcy, CELL * 0.85, now)
       }
     }
 
@@ -215,27 +457,21 @@ export default function Game({ onGameOver }) {
       const ep = 0.85 + Math.sin(now / 400 + en.x) * 0.12
       const er = (CELL / 2 - 1) * ep
       const enemyColor = frozen ? '#a0c4f0' : t.enemy
-      ctx.globalAlpha = en.intangible ? 0.35 : 1
-      ctx.fillStyle = enemyColor
-      ctx.strokeStyle = t.enemyBorder
-      ctx.lineWidth = 1.5
-      ctx.shadowColor = enemyColor
-      ctx.shadowBlur = 10
-      ctx.beginPath()
-      ctx.roundRect(en.x * CELL + CELL / 2 - er, en.y * CELL + CELL / 2 - er, er * 2, er * 2, 4)
-      ctx.fill()
-      ctx.stroke()
-      ctx.shadowBlur = 0
-      ctx.strokeStyle = t.enemyEye
-      ctx.lineWidth = 1.5
+      const baseAlpha = en.intangible ? 0.35 : 1
       const ex = en.x * CELL + CELL / 2
       const ey = en.y * CELL + CELL / 2
-      ;[[-4, -3], [1, -3]].forEach(([ox]) => {
-        const px2 = ex + ox
-        const py2 = ey - 1
-        ctx.beginPath(); ctx.moveTo(px2 - 1.5, py2 - 1.5); ctx.lineTo(px2 + 1.5, py2 + 1.5); ctx.stroke()
-        ctx.beginPath(); ctx.moveTo(px2 + 1.5, py2 - 1.5); ctx.lineTo(px2 - 1.5, py2 + 1.5); ctx.stroke()
-      })
+
+      ctx.globalAlpha = baseAlpha * 0.5
+      ctx.fillStyle = enemyColor
+      ctx.shadowColor = enemyColor
+      ctx.shadowBlur = 12
+      ctx.beginPath()
+      ctx.arc(ex, ey, er, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+
+      ctx.globalAlpha = baseAlpha
+      drawSprite(ctx, ENEMY_SPRITES[en.type], ex, ey, CELL * 0.95, now + en.x * 137)
       ctx.globalAlpha = 1
     })
 
@@ -266,7 +502,7 @@ export default function Game({ onGameOver }) {
     draw()
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    const t = getStage(s.score).theme
+    const t = getActiveTheme(s)
     ctx.fillStyle = t.overlayBg
     ctx.fillRect(0, 0, W, H)
     ctx.fillStyle = t.overlayText
@@ -300,6 +536,7 @@ export default function Game({ onGameOver }) {
     let hudDirty = s.activeEffects.length !== beforeEffects
 
     if (s.pickup && now > s.pickup.expiresAt) s.pickup = null
+    if (s.portal && now > s.portal.expiresAt) s.portal = null
 
     if (s.queue.length) s.dir = s.queue.shift()
     const head = { x: s.snake[0].x + s.dir.x, y: s.snake[0].y + s.dir.y }
@@ -320,6 +557,7 @@ export default function Game({ onGameOver }) {
 
     const ateFood = head.x === s.food.x && head.y === s.food.y
     const atePickup = !ateFood && s.pickup && head.x === s.pickup.x && head.y === s.pickup.y
+    const atePortal = !ateFood && s.portal && head.x === s.portal.x && head.y === s.portal.y
 
     if (ateFood) {
       let gain = s.activeEffects.some(e => e.type === 'multiplier') ? 2 : 1
@@ -333,11 +571,15 @@ export default function Game({ onGameOver }) {
       const grow = s.run.growthCounter % every === 0
       if (!grow) s.snake.pop()
 
-      s.food = placeFood(s.snake, s.enemies, s.pickup)
+      s.food = placeFood(s.snake, s.enemies, s.pickup, s.portal)
 
       if (!s.pickup) {
         const chance = 0.35 + (s.run.pickupChanceBonus || 0)
-        if (Math.random() < chance) s.pickup = spawnPickup(s.snake, s.enemies, s.food)
+        if (Math.random() < chance) s.pickup = spawnPickup(s.snake, s.enemies, s.food, s.portal)
+      }
+
+      if (!s.portal && !(s.portalExpiresAt > now) && Math.random() < PORTAL.spawnChance) {
+        s.portal = spawnPortal(s.snake, s.enemies, s.food, s.pickup)
       }
 
       hudDirty = true
@@ -379,8 +621,21 @@ export default function Game({ onGameOver }) {
       spawnParticles(s.pickup.x, s.pickup.y)
       if (def.kind === 'instant') s.score += GEM_BONUS_SCORE
       else if (def.kind === 'shield') s.shield = true
+      else if (def.kind === 'purge') s.enemies = []
       else addOrRefreshEffect(s, s.pickup.type)
       s.pickup = null
+      hudDirty = true
+    }
+
+    if (atePortal) {
+      spawnParticles(s.portal.x, s.portal.y)
+      s.portalExpiresAt = now + PORTAL.duration
+      addEffectUntil(s, 'multiplier', s.portalExpiresAt)
+      addEffectUntil(s, 'speed', s.portalExpiresAt)
+      s.portal = null
+      s.stepDuration = computeStepDuration(s)
+      clearInterval(s.loop)
+      s.loop = setInterval(step, s.stepDuration)
       hudDirty = true
     }
 
@@ -423,7 +678,7 @@ export default function Game({ onGameOver }) {
       prevHead: { ...initialSnake[0] },
       dir: { x: 1, y: 0 }, queue: [],
       enemies: [], score: 0, run: freshRun(),
-      activeEffects: [], pickup: null, shield: false,
+      activeEffects: [], pickup: null, portal: null, portalExpiresAt: 0, shield: false,
       stageIdx: 0, unlockedTypes: [getStage(0).enemyType],
       stageFlashKey: (s.stageFlashKey || 0) + 1,
       running: true, paused: false, awaitingPerk: false,
@@ -467,7 +722,7 @@ export default function Game({ onGameOver }) {
     stateRef.current = {
       snake: initialSnake, prevHead: { ...initialSnake[0] },
       dir: { x: 1, y: 0 }, queue: [],
-      food: { x: 15, y: 10 }, pickup: null, enemies: [],
+      food: { x: 15, y: 10 }, pickup: null, portal: null, portalExpiresAt: 0, enemies: [],
       score: 0, best, run: freshRun(), activeEffects: [], shield: false,
       stageIdx: 0, unlockedTypes: [getStage(0).enemyType], stageFlashKey: 0,
       running: false, paused: false, awaitingPerk: false, loop: null,

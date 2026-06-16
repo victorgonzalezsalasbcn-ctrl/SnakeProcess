@@ -5,6 +5,11 @@ export const POWERUP_TYPES = {
   magnet: { icon: '🧲', label: 'Imán', color: '#c79bff', duration: 6000, kind: 'buff', weight: 2 },
   freeze: { icon: '❄️', label: 'Congelar', color: '#a0c4f0', duration: 5000, kind: 'buff', weight: 2 },
   gem: { icon: '💎', label: 'Gema', color: '#5dffb0', duration: 0, kind: 'instant', weight: 3 },
+  purge: { icon: '🧹', label: 'Purga', color: '#ff8aa8', duration: 0, kind: 'purge', weight: 1 },
+}
+
+export const PORTAL = {
+  icon: '🌀', label: 'Portal dimensional', duration: 60000, lifetime: 20000, spawnChance: 0.04,
 }
 
 const TYPE_KEYS = Object.keys(POWERUP_TYPES)

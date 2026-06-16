@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Route } from 'lucide-react'
 import Game from './components/Game'
 import Leaderboard from './components/Leaderboard'
 import ScoreForm from './components/ScoreForm'
@@ -23,7 +24,13 @@ export default function App() {
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <h1 className={styles.title}>🐍 Snake</h1>
+        <h1 className={styles.title}>
+          <span className={styles.logoIcon}><Route size={24} strokeWidth={2.4} /></span>
+          <span className={styles.logoText}>
+            <span className={styles.logoStrong}>Snake</span>
+            <span className={styles.logoLight}>Process</span>
+          </span>
+        </h1>
         <button
           className={styles.themeBtn}
           onClick={() => setDarkMode(d => !d)}
